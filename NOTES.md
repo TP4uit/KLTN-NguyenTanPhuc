@@ -13,7 +13,7 @@
 
 ## Known Gaps
 
-- The MVP has an off-chain Merkle registry helper and circuit-level Merkle membership, but no on-chain registry root or dynamic insertion yet.
+- The MVP has an off-chain Merkle registry helper, circuit-level Merkle membership, and immutable on-chain Merkle root publication. Dynamic insertion is not implemented yet.
 - Deployment gas and vote gas are not collected yet.
 - Groth16 proof generation is randomized, so regenerating `proof.json` and `calldata.json` can change proof bytes while preserving the same public signals.
 
@@ -47,7 +47,7 @@ Commands run during the foundation pass:
 
 ## Remaining Blockers
 
-- On-chain Merkle root storage is still planned work.
+- Dynamic on-chain Merkle insertion is still planned work.
 - Gas metrics are still pending.
 - Avoid running `hardhat build` and `hardhat test` concurrently in the same working tree; a parallel verification attempt caused a transient Hardhat build-info file move error.
 
@@ -94,7 +94,7 @@ Commands run during the foundation pass:
 - Identity commitments use `identityCommitment = Poseidon(secretKey)`.
 - Deterministic sample voter secrets include the existing default `secretKey = 123456789`.
 - `npm run registry:generate` writes `test/fixtures/registry/registry.json` with voter secrets, identity commitments, Merkle root, selected voter index, `pathElements[3]`, and `pathIndices[3]`.
-- On-chain Merkle root storage and dynamic insertion remain pending and intentionally out of scope for this pass.
+- On-chain Merkle root storage and dynamic insertion were pending during this earlier pass.
 
 ## 2026-06-14 Circuit Merkle Membership
 
@@ -104,7 +104,16 @@ Commands run during the foundation pass:
 - The circuit recomputes the depth-3 Merkle root from the selected identity commitment and constrains it to equal public `merkleRoot`.
 - Each `pathIndices[i]` is constrained boolean with `pathIndices[i] * (pathIndices[i] - 1) === 0`.
 - `scripts/proof-generate.mjs` reads `test/fixtures/registry/registry.json` by default and uses the selected voter secret/path.
-- The contract accepts the fourth public input so it can pass the full verifier calldata, but it does not store or manage an on-chain Merkle root yet.
+- At this stage the contract accepted the fourth public input for verifier calldata; immutable on-chain root enforcement is documented below.
+
+## 2026-06-14 On-Chain Merkle Root Enforcement
+
+- The MVP now uses off-chain registry generation plus immutable on-chain root publication.
+- `contracts/Election.sol` stores `merkleRoot` from the constructor and requires `input[3] == merkleRoot`.
+- `ignition/modules/Election.ts` defaults the `merkleRoot` parameter to the current root from `test/fixtures/registry/registry.json`.
+- Wrong-root vote submissions revert with `Invalid Merkle root` before verifier execution.
+- Dynamic on-chain Merkle insertion remains out of scope.
+- Verification commands passed: `npm run registry:generate`, `npm run proof:generate`, `npm run proof:calldata`, `npm run build`, `npm test`, and `npm run typecheck`.
 
 ## 2026-06-14 Circuit Merkle Membership Verification
 

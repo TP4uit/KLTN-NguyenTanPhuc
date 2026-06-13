@@ -27,11 +27,15 @@ const rootDir = resolve(testDir, "..");
 const voteCalldata = JSON.parse(
   readFileSync(resolve(testDir, "fixtures", "vote", "calldata.json"), "utf8"),
 ) as VoteCalldata;
+const registryFixture = JSON.parse(
+  readFileSync(resolve(testDir, "fixtures", "registry", "registry.json"), "utf8"),
+);
 
 const nullifierHash = BigInt(voteCalldata.input[0]);
 const candidateId = BigInt(voteCalldata.input[1]);
 const electionId = BigInt(voteCalldata.input[2]);
 const merkleRoot = BigInt(voteCalldata.input[3]);
+const registryMerkleRoot = BigInt(registryFixture.merkleRoot);
 
 function toPublicSignal(value: bigint): string {
   return `0x${value.toString(16).padStart(64, "0")}`;
@@ -109,6 +113,7 @@ describe("ZK voting election contract", function () {
     const election = await ethers.deployContract("Election", [
       await verifier.getAddress(),
       electionId,
+      registryMerkleRoot,
     ]);
 
     return { election, owner, verifier, voter1 };
@@ -130,6 +135,7 @@ describe("ZK voting election contract", function () {
 
     expect(await election.admin()).to.equal(owner.address);
     expect(await election.electionId()).to.equal(electionId);
+    expect(await election.merkleRoot()).to.equal(registryMerkleRoot);
     expect(await election.CANDIDATE_COUNT()).to.equal(4n);
     expect(await election.MIN_CANDIDATE_ID()).to.equal(1n);
     expect(await election.MAX_CANDIDATE_ID()).to.equal(4n);
@@ -175,7 +181,7 @@ describe("ZK voting election contract", function () {
     ).to.be.revertedWith("Invalid election");
   });
 
-  it("rejects a proof submitted with a tampered Merkle root", async function () {
+  it("rejects a proof submitted with a tampered Merkle root before verifier execution", async function () {
     const { election } = await networkHelpers.loadFixture(deployElectionFixture);
 
     await expect(
@@ -185,7 +191,7 @@ describe("ZK voting election contract", function () {
         voteCalldata.c,
         withMerkleRoot(merkleRoot + 1n),
       ),
-    ).to.be.revertedWith("Loi: ZK Proof khong hop le");
+    ).to.be.revertedWith("Invalid Merkle root");
   });
 
   it("rejects candidate 0 and candidate 5 in Solidity", async function () {

@@ -15,6 +15,29 @@ Use this file to record reproducible measurements and decisions for the KLTN vot
 
 ## Planned Experiments
 
+### 2026-06-14 - On-Chain Merkle Root Enforcement
+
+- Goal: Store the off-chain registry root immutably in `Election.sol` and reject proofs whose public `merkleRoot` does not match the election root.
+- Inputs:
+  - `electionId`: `1`
+  - `merkleRoot`: `7932749078796165988725230467181390602760147441196774940239533986225546804780`
+  - Public input order: `input[0] = nullifierHash`, `input[1] = candidateId`, `input[2] = electionId`, `input[3] = merkleRoot`
+- Commands:
+  - `npm run registry:generate`
+  - `npm run proof:generate`
+  - `npm run proof:calldata`
+  - `npm run build`
+  - `npm test`
+  - `npm run typecheck`
+- Test result:
+  - `npm run build`: passed.
+  - `npm test`: 15 passing Mocha tests.
+  - `npm run typecheck`: passed.
+  - Covered deployment root storage, valid registered voter proof, wrong-root rejection with `Invalid Merkle root`, wrong election rejection, candidate bounds, replay rejection, and existing registry helper checks.
+- Notes:
+  - Circuit, zkey, and verifier were not regenerated for this pass.
+  - Dynamic on-chain Merkle insertion remains pending.
+
 ### 2026-06-14 - Circuit Merkle Membership Integration
 
 - Goal: Integrate the fixed depth-3 off-chain registry fixture into the voting circuit and proof workflow.
@@ -72,7 +95,7 @@ Use this file to record reproducible measurements and decisions for the KLTN vot
   - `npm run typecheck`: passed.
   - Covered valid registered voter proof, replay rejection, wrong election rejection, tampered Merkle root verifier rejection, tampered path element/index proof-generation failure, candidate validity, and registry helper root recomputation.
 - Notes:
-  - On-chain Merkle root storage and dynamic insertion remain pending.
+  - On-chain Merkle root storage was pending at this stage and is covered by the later root enforcement entry.
   - Groth16 proof bytes remain randomized across regeneration runs.
 
 ### 2026-06-14 - Election-Specific Nullifier and Candidate Validity

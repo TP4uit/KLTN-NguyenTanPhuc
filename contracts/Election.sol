@@ -11,16 +11,18 @@ contract Election {
     address public admin;
     Groth16Verifier public verifier;
     uint256 public immutable electionId;
+    uint256 public immutable merkleRoot;
 
     mapping(uint256 => bool) public usedNullifiers;
     mapping(uint256 => uint256) public voteCounts;
 
     event VoteCast(uint256 indexed candidateId, uint256 nullifierHash);
 
-    constructor(address _verifierAddress, uint256 _electionId) {
+    constructor(address _verifierAddress, uint256 _electionId, uint256 _merkleRoot) {
         admin = msg.sender;
         verifier = Groth16Verifier(_verifierAddress);
         electionId = _electionId;
+        merkleRoot = _merkleRoot;
     }
 
     function castVote(
@@ -37,8 +39,10 @@ contract Election {
         uint256 nullifierHash = input[0];
         uint256 candidateId = input[1];
         uint256 proofElectionId = input[2];
+        uint256 proofMerkleRoot = input[3];
 
         require(proofElectionId == electionId, "Invalid election");
+        require(proofMerkleRoot == merkleRoot, "Invalid Merkle root");
         require(
             candidateId >= MIN_CANDIDATE_ID && candidateId <= MAX_CANDIDATE_ID,
             "Invalid candidate"
