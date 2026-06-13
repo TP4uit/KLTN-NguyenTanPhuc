@@ -61,6 +61,13 @@ npm run test:mocha
 npm run test:solidity
 ```
 
+Generate the current simplified vote proof fixture and Solidity calldata:
+
+```shell
+npm run proof:generate
+npm run proof:calldata
+```
+
 Typecheck TypeScript after a successful build:
 
 ```shell

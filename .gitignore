@@ -29,3 +29,6 @@
 
 # Snapshot cheatcodes output
 /snapshots
+
+# Regenerated ZK witness binaries
+/test/fixtures/**/witness.wtns
