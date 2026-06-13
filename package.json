@@ -4,7 +4,12 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "build": "hardhat build",
+    "compile": "hardhat build",
+    "test": "hardhat test",
+    "test:mocha": "hardhat test mocha",
+    "test:solidity": "hardhat test solidity",
+    "typecheck": "tsc --noEmit"
   },
   "repository": {
     "type": "git",

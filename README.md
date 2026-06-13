@@ -1,57 +1,95 @@
-# Sample Hardhat 3 Project (`mocha` and `ethers`)
+# KLTN ZK Anonymous Verifiable Voting MVP
 
-This project showcases a Hardhat 3 project using `mocha` for tests and the `ethers` library for Ethereum interactions.
+This repository is the foundation for a KLTN thesis MVP that demonstrates anonymous, verifiable voting with zero-knowledge proofs. The target system lets an eligible voter prove membership in a voter registry, submit one private vote, prevent double voting with a nullifier, and publish a verifiable tally on-chain.
 
-To learn more about Hardhat 3, please visit the [Getting Started guide](https://hardhat.org/docs/getting-started#getting-started-with-hardhat-3). To share your feedback, join our [Hardhat 3](https://hardhat.org/hardhat3-telegram-group) Telegram group or [open an issue](https://github.com/NomicFoundation/hardhat/issues/new) in our GitHub issue tracker.
+The project is intentionally not a full voting system yet. It keeps the current Solidity, Circom, Hardhat, and frontend foundations in place while documenting the remaining MVP milestones.
 
-## Project Overview
+## Architecture
 
-This example project includes:
+- `contracts/Election.sol`: election contract that accepts Groth16 proofs, tracks used nullifiers, and counts votes by candidate ID.
+- `contracts/Verifier.sol`: generated Groth16 verifier from `snarkjs`.
+- `circuits/vote.circom`: current voting circuit foundation. It verifies a private secret against a public nullifier and is planned to grow into Merkle membership and vote validity constraints.
+- `ignition/modules/Election.ts`: Hardhat Ignition deployment module that deploys the verifier first, then the election contract.
+- `test/Election.test.ts`: TypeScript integration tests for deployment and initial state.
+- `frontend/`: Vite frontend foundation for the voter and results experience.
+- `docs/KLTN_CHECKLIST.md`: thesis requirement checklist mapped to implementation tasks.
+- `PLAN.md`, `EXPERIMENTS.md`, `NOTES.md`: long-running planning, metrics, and project notes.
 
-- A simple Hardhat configuration file.
-- Foundry-compatible Solidity unit tests.
-- TypeScript integration tests using `mocha` and ethers.js
-- Examples demonstrating how to connect to different types of networks, including locally simulating OP mainnet.
+## MVP Requirements
 
-## Usage
+- Merkle identity registry for eligible voter commitments.
+- ZK membership proof proving the voter is registered without revealing identity.
+- Nullifier-based double-voting prevention.
+- Vote validity constraint for allowed candidates.
+- Solidity verifier integration.
+- End-to-end flow from proof generation to vote submission and tally.
+- Gas, proving time, and circuit constraint metrics for thesis evaluation.
 
-### Running Tests
+## Setup
 
-To run all the tests in the project, execute the following command:
-
-```shell
-npx hardhat test
-```
-
-You can also selectively run the Solidity or `mocha` tests:
-
-```shell
-npx hardhat test solidity
-npx hardhat test mocha
-```
-
-### Make a deployment to Sepolia
-
-This project includes an example Ignition module to deploy the contract. You can deploy this module to a locally simulated chain or to Sepolia.
-
-To run the deployment to a local chain:
+Install root Hardhat dependencies:
 
 ```shell
-npx hardhat ignition deploy ignition/modules/Counter.ts
+npm install
 ```
 
-To run the deployment to Sepolia, you need an account with funds to send the transaction. The provided Hardhat configuration includes a Configuration Variable called `SEPOLIA_PRIVATE_KEY`, which you can use to set the private key of the account you want to use.
-
-You can set the `SEPOLIA_PRIVATE_KEY` variable using the `hardhat-keystore` plugin or by setting it as an environment variable.
-
-To set the `SEPOLIA_PRIVATE_KEY` config variable using `hardhat-keystore`:
+Install frontend dependencies when working on the UI:
 
 ```shell
-npx hardhat keystore set SEPOLIA_PRIVATE_KEY
+cd frontend
+npm install
 ```
 
-After setting the variable, you can run the deployment with the Sepolia network:
+## Commands
+
+Run the Solidity/TypeScript test suite:
 
 ```shell
-npx hardhat ignition deploy --network sepolia ignition/modules/Counter.ts
+npm test
 ```
+
+Compile contracts and generate Hardhat artifacts:
+
+```shell
+npm run build
+```
+
+Run scoped test layers:
+
+```shell
+npm run test:mocha
+npm run test:solidity
+```
+
+Typecheck TypeScript after a successful build:
+
+```shell
+npm run typecheck
+```
+
+Deploy locally with Ignition:
+
+```shell
+npx hardhat ignition deploy ignition/modules/Election.ts --network hardhatMainnet
+```
+
+Start the frontend:
+
+```shell
+cd frontend
+npm run dev
+```
+
+## Current Roadmap
+
+1. Stabilize the Hardhat test workflow and record blockers in `NOTES.md`.
+2. Define the final circuit public/private inputs.
+3. Add Merkle membership constraints and regenerate proving/verifier artifacts.
+4. Add Solidity support for registry roots and candidate validity.
+5. Add proof generation and vote submission scripts.
+6. Add end-to-end tests with valid and invalid proofs.
+7. Record gas, proving, and constraint metrics in `EXPERIMENTS.md`.
+
+## Status
+
+This pass creates the project foundation and tracking files only. It does not implement the full anonymous voting protocol.

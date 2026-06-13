@@ -1,36 +1,31 @@
 import { expect } from "chai";
-import hre from "hardhat"; // Giữ lại dòng này để lấy môi trường thực thi
+import { network } from "hardhat";
 
-describe("Hệ thống Bầu cử ZKP (Election Contract)", function () {
-  let election: any;
-  let verifier: any;
-  let owner: any;
-  let voter1: any;
+const { ethers, networkHelpers } = await network.create();
 
-  beforeEach(async function () {
-    // Ép kiểu lấy ethers ngay BÊN TRONG hàm - lúc này Hardhat đã nạp xong toàn bộ plugin
-    const ethers = (hre as any).ethers;
+describe("ZK voting election contract", function () {
+  async function deployElectionFixture() {
+    const [owner, voter1] = await ethers.getSigners();
 
-    [owner, voter1] = await ethers.getSigners();
+    const verifier = await ethers.deployContract("Groth16Verifier");
+    const election = await ethers.deployContract("Election", [
+      await verifier.getAddress(),
+    ]);
 
-    // 1. Triển khai Verifier Contract
-    const Verifier = await ethers.getContractFactory("Groth16Verifier");
-    verifier = await Verifier.deploy();
+    return { election, owner, verifier, voter1 };
+  }
 
-    const verifierAddress = await verifier.getAddress(); 
+  it("deploys and assigns the deployer as admin", async function () {
+    const { election, owner } = await networkHelpers.loadFixture(
+      deployElectionFixture,
+    );
 
-    // 2. Triển khai Election Contract và truyền địa chỉ Verifier vào
-    const Election = await ethers.getContractFactory("Election");
-    election = await Election.deploy(verifierAddress);
-  });
-
-  it("Nên triển khai thành công và gán đúng quyền Admin", async function () {
-    const ethers = (hre as any).ethers;
     expect(await election.admin()).to.equal(owner.address);
   });
-  
-  it("Nên khởi tạo số phiếu của các ứng viên bằng 0", async function () {
-    const votes = await election.getVotes(1);
-    expect(votes).to.equal(0n);
+
+  it("initializes candidate vote counts to zero", async function () {
+    const { election } = await networkHelpers.loadFixture(deployElectionFixture);
+
+    expect(await election.getVotes(1)).to.equal(0n);
   });
 });
