@@ -28,6 +28,7 @@ const calldata = {
   publicSignals,
   nullifierHash: input[0],
   candidateId: input[1],
+  electionId: input[2],
 };
 
 writeFileSync(rawCalldataPath, `${rawCalldata}\n`);
@@ -38,3 +39,4 @@ console.log(`  calldata: ${calldataPath}`);
 console.log(`  raw calldata: ${rawCalldataPath}`);
 console.log(`  input[0] nullifierHash: ${input[0]}`);
 console.log(`  input[1] candidateId: ${input[1]}`);
+console.log(`  input[2] electionId: ${input[2]}`);

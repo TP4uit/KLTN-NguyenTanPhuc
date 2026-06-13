@@ -6,9 +6,9 @@ The project is intentionally not a full voting system yet. It keeps the current 
 
 ## Architecture
 
-- `contracts/Election.sol`: election contract that accepts Groth16 proofs, tracks used nullifiers, and counts votes by candidate ID.
+- `contracts/Election.sol`: election contract that accepts Groth16 proofs, stores an election ID, tracks used nullifiers, enforces candidate IDs 1..4, and counts votes by candidate ID.
 - `contracts/Verifier.sol`: generated Groth16 verifier from `snarkjs`.
-- `circuits/vote.circom`: current voting circuit foundation. It verifies a private secret against a public nullifier and is planned to grow into Merkle membership and vote validity constraints.
+- `circuits/vote.circom`: current voting circuit foundation. It verifies `nullifierHash = Poseidon(secretKey, electionId)` and constrains MVP candidate IDs to 1, 2, 3, or 4. Merkle membership is still planned work.
 - `ignition/modules/Election.ts`: Hardhat Ignition deployment module that deploys the verifier first, then the election contract.
 - `test/Election.test.ts`: TypeScript integration tests for deployment and initial state.
 - `frontend/`: Vite frontend foundation for the voter and results experience.

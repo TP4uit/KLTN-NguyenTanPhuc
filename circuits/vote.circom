@@ -1,25 +1,41 @@
 pragma circom 2.1.5;
 
-// Import hàm băm Poseidon từ thư viện circomlib
 include "../node_modules/circomlib/circuits/poseidon.circom";
 
 template Vote() {
-    // 1. Dữ liệu công khai (Public Inputs - Gửi lên Smart Contract)
-    signal input nullifierHash; // Mã băm đại diện cho lá phiếu (chống bầu 2 lần)
-    signal input candidateId;   // ID của ứng viên được chọn
+    // Public input order must match contracts/Election.sol and contracts/Verifier.sol:
+    // input[0] = nullifierHash
+    // input[1] = candidateId
+    // input[2] = electionId
+    signal input nullifierHash;
+    signal input candidateId;
+    signal input electionId;
 
-    // 2. Dữ liệu bí mật (Private Inputs - Chỉ nằm trên máy cử tri)
-    signal input secretKey;     // Khóa bí mật của cử tri
+    // Private voter secret.
+    signal input secretKey;
 
-    // 3. Logic Ràng buộc (Constraints)
-    component poseidon = Poseidon(1);
-    poseidon.inputs[0] <== secretKey;
+    component nullifier = Poseidon(2);
+    nullifier.inputs[0] <== secretKey;
+    nullifier.inputs[1] <== electionId;
+    nullifier.out === nullifierHash;
 
-    // RÀNG BUỘC CỐT LÕI: Hash tạo ra từ Secret Key phải TRÙNG KHỚP với nullifierHash gửi lên
-    poseidon.out === nullifierHash;
-    
-    // Lưu ý cho GVHD: Trong tương lai sẽ tích hợp thêm MerkleTree Inclusions ở đây.
+    // MVP candidate validity: candidateId must be one of 1, 2, 3, or 4.
+    signal candidateMinus1;
+    signal candidateMinus2;
+    signal candidateMinus3;
+    signal candidateMinus4;
+    signal candidateProduct12;
+    signal candidateProduct34;
+    signal candidateValidityProduct;
+
+    candidateMinus1 <== candidateId - 1;
+    candidateMinus2 <== candidateId - 2;
+    candidateMinus3 <== candidateId - 3;
+    candidateMinus4 <== candidateId - 4;
+    candidateProduct12 <== candidateMinus1 * candidateMinus2;
+    candidateProduct34 <== candidateMinus3 * candidateMinus4;
+    candidateValidityProduct <== candidateProduct12 * candidateProduct34;
+    candidateValidityProduct === 0;
 }
 
-// Khai báo Component chính, chỉ định nullifierHash và candidateId là public
-component main {public [nullifierHash, candidateId]} = Vote();
+component main { public [nullifierHash, candidateId, electionId] } = Vote();

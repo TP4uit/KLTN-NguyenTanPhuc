@@ -4,7 +4,9 @@
 
 - The repository has moved past a plain Hardhat starter and already contains an `Election` contract, a generated Groth16 verifier, Circom artifacts, a Vite frontend foundation, and an Ignition module.
 - `contracts/Election.sol` currently supports verifier-based vote submission, public nullifier tracking, and candidate vote counts.
-- `circuits/vote.circom` currently proves that a private secret hashes to a public nullifier. It does not yet prove Merkle membership or candidate validity.
+- `circuits/vote.circom` currently proves that a private secret and public election ID hash to a public nullifier. It does not yet prove Merkle membership.
+- `circuits/vote.circom` constrains MVP candidate IDs to 1, 2, 3, or 4.
+- `contracts/Election.sol` stores an immutable `electionId`, enforces public input order, and rejects candidates outside 1..4 before verifier execution.
 - `npm run proof:generate` now creates a sample witness, Groth16 proof, public signals, and Solidity calldata for the current simplified circuit.
 - `test/Election.test.ts` now uses the generated calldata fixture to test a real `castVote` path.
 - Some existing source comments appear to have text encoding damage. This cleanup is intentionally left out of the foundation pass to avoid changing behavior.
@@ -12,7 +14,6 @@
 ## Known Gaps
 
 - No Merkle identity registry is implemented yet.
-- Candidate validity is not constrained in the circuit or checked by Solidity.
 - Deployment gas and vote gas are not collected yet.
 - Groth16 proof generation is randomized, so regenerating `proof.json` and `calldata.json` can change proof bytes while preserving the same public signals.
 
@@ -46,7 +47,7 @@ Commands run during the foundation pass:
 
 ## Remaining Blockers
 
-- Merkle membership, candidate validity constraints, and election-specific nullifier derivation are still planned work.
+- Merkle membership is still planned work.
 - Gas metrics are still pending.
 - Avoid running `hardhat build` and `hardhat test` concurrently in the same working tree; a parallel verification attempt caused a transient Hardhat build-info file move error.
 
@@ -65,4 +66,22 @@ Commands run during the foundation pass:
 - `npx snarkjs r1cs info circuits/vote.r1cs`: passed and reported 415 constraints.
 - `npm run build`: passed with `No contracts to compile`.
 - `npm test`: passed with 5 Mocha tests.
+- `npm run typecheck`: passed.
+
+## 2026-06-14 Election-Specific Nullifier and Candidate Validity
+
+- Public input order is documented in code and fixtures as `input[0] = nullifierHash`, `input[1] = candidateId`, `input[2] = electionId`.
+- Nullifier derivation is now `Poseidon(secretKey, electionId)`.
+- MVP candidate validity is enforced in Circom with the polynomial `(candidateId - 1) * (candidateId - 2) * (candidateId - 3) * (candidateId - 4) === 0`.
+- Solidity stores immutable `electionId`, requires `input[2] == electionId`, and rejects candidate IDs outside 1..4.
+- Merkle membership remains pending and intentionally out of scope for this pass.
+- New circuit metrics: 524 constraints, 527 wires, 1 private input, and 3 public inputs.
+
+## 2026-06-14 Election-Specific Verification
+
+- `npm run proof:generate`: passed and generated a fixture with `electionId = 1`.
+- `npm run proof:calldata`: passed and confirmed `input[0]` is nullifier hash, `input[1]` is candidate ID, and `input[2]` is election ID.
+- `npx snarkjs r1cs info circuits/vote.r1cs`: passed and reported 524 constraints.
+- `npm run build`: passed.
+- `npm test`: passed with 8 Mocha tests.
 - `npm run typecheck`: passed.

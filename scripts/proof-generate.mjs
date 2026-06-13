@@ -6,7 +6,10 @@ import { buildPoseidon } from "circomlibjs";
 import { groth16, wtns } from "snarkjs";
 
 const rootDir = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const fixtureDir = resolve(rootDir, "test", "fixtures", "vote");
+const fixtureDir = resolve(
+  rootDir,
+  process.env.VOTE_FIXTURE_DIR ?? "test/fixtures/vote",
+);
 const wasmPath = resolve(rootDir, "circuits", "vote_js", "vote.wasm");
 const zkeyPath = resolve(rootDir, "vote_final.zkey");
 const witnessPath = resolve(fixtureDir, "witness.wtns");
@@ -16,14 +19,18 @@ const publicPath = resolve(fixtureDir, "public.json");
 
 const secretKey = process.env.VOTE_SECRET_KEY ?? "123456789";
 const candidateId = process.env.VOTE_CANDIDATE_ID ?? "1";
+const electionId = process.env.VOTE_ELECTION_ID ?? "1";
 
 mkdirSync(fixtureDir, { recursive: true });
 
 const poseidon = await buildPoseidon();
-const nullifierHash = poseidon.F.toString(poseidon([BigInt(secretKey)]));
+const nullifierHash = poseidon.F.toString(
+  poseidon([BigInt(secretKey), BigInt(electionId)]),
+);
 const input = {
   nullifierHash,
   candidateId,
+  electionId,
   secretKey,
 };
 
@@ -42,5 +49,6 @@ console.log(`  proof: ${proofPath}`);
 console.log(`  public signals: ${publicPath}`);
 console.log(`  nullifierHash: ${nullifierHash}`);
 console.log(`  candidateId: ${candidateId}`);
+console.log(`  electionId: ${electionId}`);
 
 process.exit(0);

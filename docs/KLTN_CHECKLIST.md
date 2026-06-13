@@ -19,66 +19,69 @@ Current foundation:
 
 - [ ] Extend the voting circuit with Merkle path private inputs.
 - [ ] Constrain the computed root to equal the public election root.
-- [ ] Generate fresh proving and verification keys after circuit changes.
-- [ ] Regenerate `contracts/Verifier.sol` from the final verification key.
-- [ ] Add fixture-based proof generation tests.
+- [x] Generate fresh proving and verification keys after circuit changes.
+- [x] Regenerate `contracts/Verifier.sol` from the final verification key.
+- [x] Add fixture-based proof generation tests.
 
 Current foundation:
 
-- `circuits/vote.circom` proves a secret key hashes to a public nullifier.
+- `circuits/vote.circom` proves a secret key and election ID hash to a public nullifier.
 - Full membership inclusion is still a planned milestone.
 
 ## Nullifier Double-Voting Prevention
 
 - [ ] Keep nullifier hash public in the circuit.
-- [ ] Bind nullifier derivation to the voter's secret and election identifier.
-- [ ] Reject reused nullifiers in `Election.castVote`.
-- [ ] Add tests for first vote success and second vote rejection.
+- [x] Bind nullifier derivation to the voter's secret and election identifier.
+- [x] Reject reused nullifiers in `Election.castVote`.
+- [x] Add tests for first vote success and second vote rejection.
 
 Current foundation:
 
-- `contracts/Election.sol` already tracks `usedNullifiers`.
-- Existing tests do not yet submit a valid proof or assert duplicate vote rejection.
+- `contracts/Election.sol` tracks `usedNullifiers`.
+- `circuits/vote.circom` derives `nullifierHash = Poseidon(secretKey, electionId)`.
+- Tests submit a valid proof and assert duplicate vote rejection.
 
 ## Vote Validity Constraint
 
-- [ ] Define valid candidate ID range for each election.
-- [ ] Constrain `candidateId` in the circuit.
-- [ ] Mirror candidate validation in Solidity for defense in depth.
-- [ ] Add tests for valid and invalid candidate IDs.
+- [x] Define valid candidate ID range for each election.
+- [x] Constrain `candidateId` in the circuit.
+- [x] Mirror candidate validation in Solidity for defense in depth.
+- [x] Add tests for valid and invalid candidate IDs.
 
 Current foundation:
 
-- `candidateId` is a public circuit input.
-- Solidity currently counts any `candidateId`.
+- MVP candidate IDs are constrained to 1, 2, 3, or 4.
+- Solidity rejects candidate IDs outside 1..4 before verifier execution.
 
 ## Solidity Verifier Integration
 
 - [ ] Keep generated verifier contract isolated in `contracts/Verifier.sol`.
-- [ ] Document the exact `snarkjs` command used to generate the verifier.
-- [ ] Confirm public input ordering matches `Election.castVote`.
-- [ ] Add integration tests with a known valid proof.
+- [x] Document the exact `snarkjs` command used to generate the verifier.
+- [x] Confirm public input ordering matches `Election.castVote`.
+- [x] Add integration tests with a known valid proof.
 
 Current foundation:
 
 - `contracts/Election.sol` calls `Groth16Verifier.verifyProof`.
 - `ignition/modules/Election.ts` deploys verifier before election.
+- Public input order is `input[0] = nullifierHash`, `input[1] = candidateId`, `input[2] = electionId`.
 
 ## End-to-End Vote Flow
 
 - [ ] Define off-chain flow: register voter, build witness, prove, submit vote.
 - [ ] Add script for local proof generation and vote submission.
 - [ ] Add frontend wiring for proof generation or proof submission.
-- [ ] Add an end-to-end test covering deployment, proof, vote, and tally.
+- [x] Add an end-to-end test covering deployment, proof, vote, and tally.
 
 Current foundation:
 
 - `frontend/` exists as a Vite application foundation.
-- `scripts/send-op-tx.ts` is a Hardhat example and not yet voting-specific.
+- `scripts/proof-generate.mjs` and `scripts/proof-calldata.mjs` generate a local proof and verifier calldata for contract tests.
+- A standalone vote-submission script remains pending.
 
 ## Gas, Proving, and Constraint Metrics
 
-- [ ] Record circuit constraints after each major circuit revision.
+- [x] Record circuit constraints after each major circuit revision.
 - [ ] Record proving time and hardware context.
 - [ ] Record verifier deployment gas.
 - [ ] Record `castVote` gas for valid votes and failed duplicate attempts.
@@ -87,4 +90,4 @@ Current foundation:
 Current foundation:
 
 - `circuits/vote.r1cs`, `vote.sym`, `vote_final.zkey`, and `verification_key.json` exist.
-- Baseline metrics still need to be collected and documented.
+- Current circuit metrics are documented in `EXPERIMENTS.md`.
