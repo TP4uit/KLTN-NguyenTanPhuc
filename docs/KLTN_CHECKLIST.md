@@ -4,16 +4,20 @@ This checklist maps the anonymous verifiable voting MVP to the thesis requiremen
 
 ## Merkle Identity Registry
 
-- [ ] Define voter identity commitment format.
-- [ ] Select Merkle tree depth and hash function for the registry.
-- [ ] Add off-chain registry builder scripts under `scripts/` or `circuits/`.
+- [x] Define voter identity commitment format.
+- [x] Select Merkle tree depth and hash function for the registry.
+- [x] Add off-chain registry builder scripts under `scripts/` or `circuits/`.
 - [ ] Store and publish the election Merkle root on-chain.
 - [ ] Add tests for root updates, invalid roots, and registry immutability during an election.
 
 Current foundation:
 
-- `circuits/` exists and already uses Poseidon from `circomlib`.
+- MVP identity commitments use `identityCommitment = Poseidon(secretKey)`.
+- The off-chain registry helper builds a fixed depth-3 Poseidon tree with 8 leaves.
+- `scripts/merkle-registry.mjs` contains reusable tree/proof helpers.
+- `scripts/registry-generate.mjs` writes `test/fixtures/registry/registry.json`.
 - `contracts/Election.sol` does not yet store a Merkle root.
+- On-chain dynamic insertion is not implemented yet.
 
 ## ZK Membership Proof
 
@@ -27,6 +31,7 @@ Current foundation:
 
 - `circuits/vote.circom` proves a secret key and election ID hash to a public nullifier.
 - Full membership inclusion is still a planned milestone.
+- The current Merkle fixture already exposes `pathElements[3]` and `pathIndices[3]` for the selected voter.
 
 ## Nullifier Double-Voting Prevention
 

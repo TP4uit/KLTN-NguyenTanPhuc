@@ -13,7 +13,7 @@
 
 ## Known Gaps
 
-- No Merkle identity registry is implemented yet.
+- The MVP has an off-chain Merkle registry helper, but no on-chain registry root or dynamic insertion yet.
 - Deployment gas and vote gas are not collected yet.
 - Groth16 proof generation is randomized, so regenerating `proof.json` and `calldata.json` can change proof bytes while preserving the same public signals.
 
@@ -85,3 +85,13 @@ Commands run during the foundation pass:
 - `npm run build`: passed.
 - `npm test`: passed with 8 Mocha tests.
 - `npm run typecheck`: passed.
+
+## 2026-06-14 Off-Chain Merkle Registry Helper
+
+- Added a reusable off-chain registry helper in `scripts/merkle-registry.mjs`.
+- The MVP registry fixture uses a fixed depth-3 Merkle tree with 8 leaves.
+- The registry hash function is Poseidon from `circomlibjs`.
+- Identity commitments use `identityCommitment = Poseidon(secretKey)`.
+- Deterministic sample voter secrets include the existing default `secretKey = 123456789`.
+- `npm run registry:generate` writes `test/fixtures/registry/registry.json` with voter secrets, identity commitments, Merkle root, selected voter index, `pathElements[3]`, and `pathIndices[3]`.
+- On-chain dynamic insertion and circuit-level Merkle membership remain pending and intentionally out of scope for this pass.

@@ -8,6 +8,7 @@
     "compile": "hardhat build",
     "proof:calldata": "node scripts/proof-calldata.mjs",
     "proof:generate": "node scripts/proof-generate.mjs && node scripts/proof-calldata.mjs",
+    "registry:generate": "node scripts/registry-generate.mjs",
     "test": "hardhat test",
     "test:mocha": "hardhat test mocha",
     "test:solidity": "hardhat test solidity",
