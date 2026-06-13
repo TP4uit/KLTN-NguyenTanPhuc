@@ -1,9 +1,10 @@
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { buildPoseidon } from "circomlibjs";
 import { groth16, wtns } from "snarkjs";
+
+import { createPoseidonHasher } from "./merkle-registry.mjs";
 
 const rootDir = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const fixtureDir = resolve(
@@ -12,26 +13,36 @@ const fixtureDir = resolve(
 );
 const wasmPath = resolve(rootDir, "circuits", "vote_js", "vote.wasm");
 const zkeyPath = resolve(rootDir, "vote_final.zkey");
+const registryPath = resolve(
+  rootDir,
+  process.env.REGISTRY_FIXTURE_PATH ?? "test/fixtures/registry/registry.json",
+);
 const witnessPath = resolve(fixtureDir, "witness.wtns");
 const inputPath = resolve(fixtureDir, "input.json");
 const proofPath = resolve(fixtureDir, "proof.json");
 const publicPath = resolve(fixtureDir, "public.json");
 
-const secretKey = process.env.VOTE_SECRET_KEY ?? "123456789";
+const registry = JSON.parse(readFileSync(registryPath, "utf8"));
+const secretKey = process.env.VOTE_SECRET_KEY ?? registry.selectedVoterSecret;
 const candidateId = process.env.VOTE_CANDIDATE_ID ?? "1";
 const electionId = process.env.VOTE_ELECTION_ID ?? "1";
+const merkleRoot = process.env.VOTE_MERKLE_ROOT ?? registry.merkleRoot;
+const pathElements = registry.pathElements;
+const pathIndices = registry.pathIndices;
 
 mkdirSync(fixtureDir, { recursive: true });
 
-const poseidon = await buildPoseidon();
-const nullifierHash = poseidon.F.toString(
-  poseidon([BigInt(secretKey), BigInt(electionId)]),
-);
+const hasher = await createPoseidonHasher();
+const nullifierHash = hasher.hash([secretKey, electionId]);
 const input = {
+  // Public input order: nullifierHash, candidateId, electionId, merkleRoot.
   nullifierHash,
   candidateId,
   electionId,
+  merkleRoot,
   secretKey,
+  pathElements,
+  pathIndices,
 };
 
 writeFileSync(inputPath, `${JSON.stringify(input, null, 2)}\n`);
@@ -50,5 +61,6 @@ console.log(`  public signals: ${publicPath}`);
 console.log(`  nullifierHash: ${nullifierHash}`);
 console.log(`  candidateId: ${candidateId}`);
 console.log(`  electionId: ${electionId}`);
+console.log(`  merkleRoot: ${merkleRoot}`);
 
 process.exit(0);

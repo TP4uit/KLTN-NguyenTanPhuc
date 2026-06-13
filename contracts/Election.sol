@@ -27,12 +27,13 @@ contract Election {
         uint[2] memory a,
         uint[2][2] memory b,
         uint[2] memory c,
-        uint[3] memory input
+        uint[4] memory input
     ) public {
         // Public input order:
         // input[0] = nullifierHash
         // input[1] = candidateId
         // input[2] = electionId
+        // input[3] = merkleRoot
         uint256 nullifierHash = input[0];
         uint256 candidateId = input[1];
         uint256 proofElectionId = input[2];

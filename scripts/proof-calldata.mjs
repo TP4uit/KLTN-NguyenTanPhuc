@@ -5,7 +5,10 @@ import { fileURLToPath } from "node:url";
 import { groth16 } from "snarkjs";
 
 const rootDir = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const fixtureDir = resolve(rootDir, "test", "fixtures", "vote");
+const fixtureDir = resolve(
+  rootDir,
+  process.env.VOTE_FIXTURE_DIR ?? "test/fixtures/vote",
+);
 const proofPath = resolve(fixtureDir, "proof.json");
 const publicPath = resolve(fixtureDir, "public.json");
 const calldataPath = resolve(fixtureDir, "calldata.json");
@@ -24,11 +27,13 @@ const calldata = {
   a,
   b,
   c,
+  // Public input order: nullifierHash, candidateId, electionId, merkleRoot.
   input,
   publicSignals,
   nullifierHash: input[0],
   candidateId: input[1],
   electionId: input[2],
+  merkleRoot: input[3],
 };
 
 writeFileSync(rawCalldataPath, `${rawCalldata}\n`);
@@ -40,3 +45,4 @@ console.log(`  raw calldata: ${rawCalldataPath}`);
 console.log(`  input[0] nullifierHash: ${input[0]}`);
 console.log(`  input[1] candidateId: ${input[1]}`);
 console.log(`  input[2] electionId: ${input[2]}`);
+console.log(`  input[3] merkleRoot: ${input[3]}`);

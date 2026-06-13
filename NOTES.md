@@ -4,7 +4,7 @@
 
 - The repository has moved past a plain Hardhat starter and already contains an `Election` contract, a generated Groth16 verifier, Circom artifacts, a Vite frontend foundation, and an Ignition module.
 - `contracts/Election.sol` currently supports verifier-based vote submission, public nullifier tracking, and candidate vote counts.
-- `circuits/vote.circom` currently proves that a private secret and public election ID hash to a public nullifier. It does not yet prove Merkle membership.
+- `circuits/vote.circom` currently proves that a private secret and public election ID hash to a public nullifier, and verifies membership in a fixed depth-3 Merkle registry.
 - `circuits/vote.circom` constrains MVP candidate IDs to 1, 2, 3, or 4.
 - `contracts/Election.sol` stores an immutable `electionId`, enforces public input order, and rejects candidates outside 1..4 before verifier execution.
 - `npm run proof:generate` now creates a sample witness, Groth16 proof, public signals, and Solidity calldata for the current simplified circuit.
@@ -13,7 +13,7 @@
 
 ## Known Gaps
 
-- The MVP has an off-chain Merkle registry helper, but no on-chain registry root or dynamic insertion yet.
+- The MVP has an off-chain Merkle registry helper and circuit-level Merkle membership, but no on-chain registry root or dynamic insertion yet.
 - Deployment gas and vote gas are not collected yet.
 - Groth16 proof generation is randomized, so regenerating `proof.json` and `calldata.json` can change proof bytes while preserving the same public signals.
 
@@ -47,7 +47,7 @@ Commands run during the foundation pass:
 
 ## Remaining Blockers
 
-- Merkle membership is still planned work.
+- On-chain Merkle root storage is still planned work.
 - Gas metrics are still pending.
 - Avoid running `hardhat build` and `hardhat test` concurrently in the same working tree; a parallel verification attempt caused a transient Hardhat build-info file move error.
 
@@ -74,7 +74,7 @@ Commands run during the foundation pass:
 - Nullifier derivation is now `Poseidon(secretKey, electionId)`.
 - MVP candidate validity is enforced in Circom with the polynomial `(candidateId - 1) * (candidateId - 2) * (candidateId - 3) * (candidateId - 4) === 0`.
 - Solidity stores immutable `electionId`, requires `input[2] == electionId`, and rejects candidate IDs outside 1..4.
-- Merkle membership remains pending and intentionally out of scope for this pass.
+- Merkle membership was pending during this earlier pass; circuit-level membership is documented below.
 - New circuit metrics: 524 constraints, 527 wires, 1 private input, and 3 public inputs.
 
 ## 2026-06-14 Election-Specific Verification
@@ -94,4 +94,24 @@ Commands run during the foundation pass:
 - Identity commitments use `identityCommitment = Poseidon(secretKey)`.
 - Deterministic sample voter secrets include the existing default `secretKey = 123456789`.
 - `npm run registry:generate` writes `test/fixtures/registry/registry.json` with voter secrets, identity commitments, Merkle root, selected voter index, `pathElements[3]`, and `pathIndices[3]`.
-- On-chain dynamic insertion and circuit-level Merkle membership remain pending and intentionally out of scope for this pass.
+- On-chain Merkle root storage and dynamic insertion remain pending and intentionally out of scope for this pass.
+
+## 2026-06-14 Circuit Merkle Membership
+
+- Public input order is now `input[0] = nullifierHash`, `input[1] = candidateId`, `input[2] = electionId`, `input[3] = merkleRoot`.
+- Private inputs are `secretKey`, `pathElements[3]`, and `pathIndices[3]`.
+- The circuit computes `identityCommitment = Poseidon(secretKey)`.
+- The circuit recomputes the depth-3 Merkle root from the selected identity commitment and constrains it to equal public `merkleRoot`.
+- Each `pathIndices[i]` is constrained boolean with `pathIndices[i] * (pathIndices[i] - 1) === 0`.
+- `scripts/proof-generate.mjs` reads `test/fixtures/registry/registry.json` by default and uses the selected voter secret/path.
+- The contract accepts the fourth public input so it can pass the full verifier calldata, but it does not store or manage an on-chain Merkle root yet.
+
+## 2026-06-14 Circuit Merkle Membership Verification
+
+- `npm run registry:generate`: passed.
+- `npm run proof:generate`: passed and generated witness input with `merkleRoot`, `pathElements[3]`, and `pathIndices[3]`.
+- `npm run proof:calldata`: passed and confirmed `input[3]` is Merkle root.
+- `npx snarkjs r1cs info circuits/vote.r1cs`: passed and reported 2502 constraints, 4 public inputs, and 7 private inputs.
+- `npm run build`: passed.
+- `npm test`: passed with 15 Mocha tests.
+- `npm run typecheck`: passed.

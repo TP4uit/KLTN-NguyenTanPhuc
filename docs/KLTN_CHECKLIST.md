@@ -21,21 +21,23 @@ Current foundation:
 
 ## ZK Membership Proof
 
-- [ ] Extend the voting circuit with Merkle path private inputs.
-- [ ] Constrain the computed root to equal the public election root.
+- [x] Extend the voting circuit with Merkle path private inputs.
+- [x] Constrain the computed root to equal the public election root.
 - [x] Generate fresh proving and verification keys after circuit changes.
 - [x] Regenerate `contracts/Verifier.sol` from the final verification key.
 - [x] Add fixture-based proof generation tests.
 
 Current foundation:
 
-- `circuits/vote.circom` proves a secret key and election ID hash to a public nullifier.
-- Full membership inclusion is still a planned milestone.
-- The current Merkle fixture already exposes `pathElements[3]` and `pathIndices[3]` for the selected voter.
+- `circuits/vote.circom` computes `identityCommitment = Poseidon(secretKey)`.
+- Private inputs now include `secretKey`, `pathElements[3]`, and `pathIndices[3]`.
+- Public input order is `input[0] = nullifierHash`, `input[1] = candidateId`, `input[2] = electionId`, `input[3] = merkleRoot`.
+- The circuit recomputes a depth-3 Merkle root and constrains it to equal public `merkleRoot`.
+- On-chain Merkle root storage remains pending.
 
 ## Nullifier Double-Voting Prevention
 
-- [ ] Keep nullifier hash public in the circuit.
+- [x] Keep nullifier hash public in the circuit.
 - [x] Bind nullifier derivation to the voter's secret and election identifier.
 - [x] Reject reused nullifiers in `Election.castVote`.
 - [x] Add tests for first vote success and second vote rejection.
@@ -60,7 +62,7 @@ Current foundation:
 
 ## Solidity Verifier Integration
 
-- [ ] Keep generated verifier contract isolated in `contracts/Verifier.sol`.
+- [x] Keep generated verifier contract isolated in `contracts/Verifier.sol`.
 - [x] Document the exact `snarkjs` command used to generate the verifier.
 - [x] Confirm public input ordering matches `Election.castVote`.
 - [x] Add integration tests with a known valid proof.
@@ -69,7 +71,7 @@ Current foundation:
 
 - `contracts/Election.sol` calls `Groth16Verifier.verifyProof`.
 - `ignition/modules/Election.ts` deploys verifier before election.
-- Public input order is `input[0] = nullifierHash`, `input[1] = candidateId`, `input[2] = electionId`.
+- Public input order is `input[0] = nullifierHash`, `input[1] = candidateId`, `input[2] = electionId`, `input[3] = merkleRoot`.
 
 ## End-to-End Vote Flow
 

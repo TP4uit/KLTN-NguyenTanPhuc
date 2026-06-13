@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -13,11 +13,13 @@ type VoteCalldata = {
   a: [string, string];
   b: [[string, string], [string, string]];
   c: [string, string];
-  input: [string, string, string];
-  publicSignals: [string, string, string];
+  // Public input order: nullifierHash, candidateId, electionId, merkleRoot.
+  input: [string, string, string, string];
+  publicSignals: [string, string, string, string];
   nullifierHash: string;
   candidateId: string;
   electionId: string;
+  merkleRoot: string;
 };
 
 const testDir = dirname(fileURLToPath(import.meta.url));
@@ -29,34 +31,63 @@ const voteCalldata = JSON.parse(
 const nullifierHash = BigInt(voteCalldata.input[0]);
 const candidateId = BigInt(voteCalldata.input[1]);
 const electionId = BigInt(voteCalldata.input[2]);
+const merkleRoot = BigInt(voteCalldata.input[3]);
 
-function withCandidateId(candidate: bigint): [string, string, string] {
+function toPublicSignal(value: bigint): string {
+  return `0x${value.toString(16).padStart(64, "0")}`;
+}
+
+function withCandidateId(candidate: bigint): [string, string, string, string] {
   return [
     voteCalldata.input[0],
-    `0x${candidate.toString(16).padStart(64, "0")}`,
+    toPublicSignal(candidate),
     voteCalldata.input[2],
+    voteCalldata.input[3],
   ];
 }
 
-function withElectionId(nextElectionId: bigint): [string, string, string] {
+function withElectionId(nextElectionId: bigint): [string, string, string, string] {
   return [
     voteCalldata.input[0],
     voteCalldata.input[1],
-    `0x${nextElectionId.toString(16).padStart(64, "0")}`,
+    toPublicSignal(nextElectionId),
+    voteCalldata.input[3],
   ];
 }
 
-function expectInvalidCandidateWitness(candidate: number) {
+function withMerkleRoot(nextMerkleRoot: bigint): [string, string, string, string] {
+  return [
+    voteCalldata.input[0],
+    voteCalldata.input[1],
+    voteCalldata.input[2],
+    toPublicSignal(nextMerkleRoot),
+  ];
+}
+
+function expectInvalidProofGeneration(
+  env: NodeJS.ProcessEnv,
+  mutateRegistry?: (registry: any) => void,
+) {
   const tempFixtureDir = mkdtempSync(resolve(tmpdir(), "kltn-invalid-vote-"));
+  const tempRegistryPath = resolve(tempFixtureDir, "registry.json");
 
   try {
+    if (mutateRegistry !== undefined) {
+      const registry = JSON.parse(
+        readFileSync(resolve(testDir, "fixtures", "registry", "registry.json"), "utf8"),
+      );
+      mutateRegistry(registry);
+      writeFileSync(tempRegistryPath, `${JSON.stringify(registry, null, 2)}\n`);
+    }
+
     expect(() =>
       execFileSync(process.execPath, [resolve(rootDir, "scripts", "proof-generate.mjs")], {
         cwd: rootDir,
         env: {
           ...process.env,
-          VOTE_CANDIDATE_ID: String(candidate),
           VOTE_FIXTURE_DIR: tempFixtureDir,
+          ...(mutateRegistry === undefined ? {} : { REGISTRY_FIXTURE_PATH: tempRegistryPath }),
+          ...env,
         },
         stdio: "pipe",
       }),
@@ -64,6 +95,10 @@ function expectInvalidCandidateWitness(candidate: number) {
   } finally {
     rmSync(tempFixtureDir, { force: true, recursive: true });
   }
+}
+
+function expectInvalidCandidateWitness(candidate: number) {
+  expectInvalidProofGeneration({ VOTE_CANDIDATE_ID: String(candidate) });
 }
 
 describe("ZK voting election contract", function () {
@@ -140,6 +175,19 @@ describe("ZK voting election contract", function () {
     ).to.be.revertedWith("Invalid election");
   });
 
+  it("rejects a proof submitted with a tampered Merkle root", async function () {
+    const { election } = await networkHelpers.loadFixture(deployElectionFixture);
+
+    await expect(
+      election.castVote(
+        voteCalldata.a,
+        voteCalldata.b,
+        voteCalldata.c,
+        withMerkleRoot(merkleRoot + 1n),
+      ),
+    ).to.be.revertedWith("Loi: ZK Proof khong hop le");
+  });
+
   it("rejects candidate 0 and candidate 5 in Solidity", async function () {
     const { election } = await networkHelpers.loadFixture(deployElectionFixture);
 
@@ -173,5 +221,16 @@ describe("ZK voting election contract", function () {
 
     expectInvalidCandidateWitness(0);
     expectInvalidCandidateWitness(5);
+  });
+
+  it("does not generate valid proofs with tampered Merkle paths", function () {
+    this.timeout(30_000);
+
+    expectInvalidProofGeneration({}, (registry) => {
+      registry.pathElements[0] = registry.identityCommitments[3];
+    });
+    expectInvalidProofGeneration({}, (registry) => {
+      registry.pathIndices[0] = 2;
+    });
   });
 });
