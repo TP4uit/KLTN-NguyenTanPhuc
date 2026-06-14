@@ -9,6 +9,7 @@
 - `contracts/Election.sol` stores an immutable `electionId`, enforces public input order, and rejects candidates outside 1..4 before verifier execution.
 - `npm run proof:generate` now creates a sample witness, Groth16 proof, public signals, and Solidity calldata for the current simplified circuit.
 - `test/Election.test.ts` now uses the generated calldata fixture to test a real `castVote` path.
+- `npm run evidence:all` now regenerates registry/proof/calldata audits, proof benchmarks, gas benchmarks, and `docs/BENCHMARK_REPORT.md`.
 - Some existing source comments appear to have text encoding damage. This cleanup is intentionally left out of the foundation pass to avoid changing behavior.
 
 ## Known Gaps
@@ -17,7 +18,8 @@
 - `npm run deploy:local` and `npm run vote:local` provide a reproducible in-process local deploy/vote path.
 - `npm run deploy:localhost` and `npm run vote:localhost` target a persistent `npx hardhat node` RPC for MetaMask and the Vite frontend.
 - The frontend can generate a browser-side SnarkJS proof for the selected candidate, submit the generated calldata through MetaMask, keep the checked fixture submission as a candidate-1 fallback, and read local on-chain vote counts.
-- Vote gas for a valid fixture vote has been collected once. Verifier deployment gas and duplicate-nullifier failure gas are still pending.
+- The evidence pack records local proof timing, circuit metrics, artifact sizes, verifier and election deployment gas, valid vote gas, and revert behavior for duplicate nullifier, invalid candidate, invalid Merkle root, and invalid proof paths.
+- Failed-path revert reasons are recorded. Failed-path gas receipts are not exposed by the current local ethers/Hardhat error objects.
 - Groth16 proof generation is randomized, so regenerating `proof.json` and `calldata.json` can change proof bytes while preserving the same public signals.
 
 ## Verification Log
@@ -52,7 +54,6 @@ Commands run during the foundation pass:
 
 - Dynamic on-chain Merkle insertion is still planned work.
 - Production identity and secret management are still pending. The Dashboard browser proof flow uses demo-only registry material and a precomputed local demo nullifier, while `frontend/src/contracts/vote.calldata.local.json` remains a fallback.
-- Verifier deployment gas and duplicate-nullifier failure gas are still pending.
 - Avoid running `hardhat build` and `hardhat test` concurrently in the same working tree; a parallel verification attempt caused a transient Hardhat build-info file move error.
 - In the managed Codex sandbox, Hardhat commands may need approval because Hardhat creates `C:\Users\USER\AppData\Roaming\hardhat-nodejs\Config`. Outside the sandbox, run the same `npm` commands normally.
 
@@ -240,3 +241,25 @@ Commands run during the foundation pass:
 - Temporary `npm run node:local` and frontend dev servers started successfully during verification and were stopped afterward.
 - The real MetaMask extension UI was not installed in this Codex session; the Chrome smoke verifies the Dashboard browser path against a MetaMask-compatible EIP-1193 provider.
 - This remains MVP/demo only: the local registry secret is stored in `registry.local.json`, and browser-side production secret storage/nullifier derivation are not implemented.
+
+## 2026-06-14 Evidence, Benchmark, and Audit Pack
+
+- Added reproducible audit scripts for registry root recomputation, Groth16 proof verification, and Solidity calldata/public-input consistency.
+- Added proof benchmark evidence for R1CS metrics, artifact sizes, witness generation, Groth16 proving, and calldata export.
+- Added gas benchmark evidence for verifier deployment, election deployment, valid `castVote`, and expected revert behavior.
+- Generated reports live under `reports/evidence/`, and the thesis-friendly summary is `docs/BENCHMARK_REPORT.md`.
+- Latest generated proof benchmark:
+  - Constraints: `2502`
+  - Witness generation: `96ms`
+  - Groth16 proving: `740ms`
+  - Total proof workflow: `836ms`
+  - Benchmark command total including setup and R1CS info: `3606ms`
+- Latest generated gas benchmark:
+  - `Groth16Verifier` deployment: `438877`
+  - `Election` deployment: `1016929`
+  - Valid `castVote`: `298680`
+  - Duplicate nullifier: reverted with `Loi: Cu tri nay da bo phieu!`
+  - Invalid candidate: reverted with `Invalid candidate`
+  - Invalid Merkle root: reverted with `Invalid Merkle root`
+  - Invalid proof: reverted with `Loi: ZK Proof khong hop le`
+- Reverted transaction gas receipts are not available from the current local ethers/Hardhat error objects, so the evidence records rejection behavior and readable reasons for those paths.

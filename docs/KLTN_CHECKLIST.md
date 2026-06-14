@@ -104,13 +104,18 @@ Current foundation:
 ## Gas, Proving, and Constraint Metrics
 
 - [x] Record circuit constraints after each major circuit revision.
-- [ ] Record proving time and hardware context.
-- [ ] Record verifier deployment gas.
-- [ ] Record `castVote` gas for valid votes and failed duplicate attempts.
+- [x] Record proving time and hardware context.
+- [x] Record verifier deployment gas.
+- [x] Record `castVote` gas for valid votes and rejection behavior for failed duplicate attempts.
 - [x] Keep experiment results in `EXPERIMENTS.md`.
 
 Current foundation:
 
 - `circuits/vote.r1cs`, `vote.sym`, `vote_final.zkey`, and `verification_key.json` exist.
 - Current circuit metrics are documented in `EXPERIMENTS.md`.
-- A valid local `castVote` run used `298680` gas. Duplicate-nullifier failure gas remains pending.
+- `scripts/audit-registry.mjs`, `scripts/audit-proof.mjs`, and `scripts/audit-calldata.mjs` write machine-readable audit reports under `reports/evidence/`.
+- `scripts/benchmark-proof.mjs` records R1CS metrics, artifact sizes, witness generation time, Groth16 proving time, and Solidity calldata export time.
+- `scripts/benchmark-gas.ts` records local Hardhat deployment gas, valid `castVote` gas, and rejection behavior for duplicate nullifier, invalid candidate, invalid Merkle root, and invalid proof paths.
+- `npm run evidence:all` regenerates the evidence pack and `docs/BENCHMARK_REPORT.md`.
+- Latest generated evidence recorded 2502 constraints, 836 ms total proof workflow, 438877 verifier deployment gas, 1016929 election deployment gas, and 298680 gas for valid `castVote`.
+- Reverted paths record clear reasons; the local ethers/Hardhat error objects do not expose gas receipts for those failed paths in the current benchmark.

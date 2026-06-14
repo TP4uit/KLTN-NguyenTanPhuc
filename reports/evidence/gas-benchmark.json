@@ -1,0 +1,74 @@
+{
+  "kind": "gas-benchmark",
+  "generatedAt": "2026-06-14T05:29:26.118Z",
+  "environment": {
+    "node": "v24.14.1",
+    "platform": "win32",
+    "arch": "x64",
+    "hardhatNetwork": "default"
+  },
+  "inputs": {
+    "calldata": "test/fixtures/vote/calldata.json",
+    "registry": "test/fixtures/registry/registry.json",
+    "electionId": "1",
+    "merkleRoot": "7932749078796165988725230467181390602760147441196774940239533986225546804780",
+    "candidateId": "1",
+    "nullifierHash": "9949772996283065961028046280886251458800049835521251014398656492972427599980"
+  },
+  "deployer": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+  "deployments": {
+    "verifier": {
+      "address": "0x5FbDB2315678afecb367f032d93F642f64180aa3",
+      "txHash": "0x7835792180b268ec8c2c0fed01f376db480a45373b2033071df63dfa2cf5d426",
+      "gasUsed": "438877"
+    },
+    "election": {
+      "address": "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512",
+      "txHash": "0xc7b5748dedbb45833852e7f2b6631c5f52244b5fc02636cfce863376ec479535",
+      "gasUsed": "1016929"
+    }
+  },
+  "transactions": {
+    "validCastVote": {
+      "txHash": "0xbeafa885483c6406e1cc04497866ed863386fa896c46f7b8ff3f53a9eb750e5f",
+      "gasUsed": "298680",
+      "candidateId": "1",
+      "updatedVotes": "1"
+    },
+    "rejections": {
+      "duplicate": {
+        "label": "duplicate nullifier",
+        "reverted": true,
+        "reason": "Loi: Cu tri nay da bo phieu!",
+        "gasUsed": null,
+        "txHash": null,
+        "receiptStatus": null
+      },
+      "invalidCandidate": {
+        "label": "invalid candidate",
+        "reverted": true,
+        "reason": "Invalid candidate",
+        "gasUsed": null,
+        "txHash": null,
+        "receiptStatus": null
+      },
+      "invalidMerkleRoot": {
+        "label": "invalid Merkle root",
+        "reverted": true,
+        "reason": "Invalid Merkle root",
+        "gasUsed": null,
+        "txHash": null,
+        "receiptStatus": null
+      },
+      "invalidProof": {
+        "label": "invalid proof",
+        "reverted": true,
+        "reason": "Loi: ZK Proof khong hop le",
+        "gasUsed": null,
+        "txHash": null,
+        "receiptStatus": null
+      }
+    }
+  },
+  "passed": true
+}

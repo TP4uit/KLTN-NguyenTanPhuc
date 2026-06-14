@@ -1,0 +1,61 @@
+{
+  "kind": "audit-calldata",
+  "generatedAt": "2026-06-14T05:29:17.490Z",
+  "environment": {
+    "node": "v24.14.1",
+    "platform": "win32",
+    "arch": "x64",
+    "cwd": "D:\\vscode\\KLTN-NguyenTanPhuc"
+  },
+  "inputs": {
+    "calldata": "test/fixtures/vote/calldata.json",
+    "publicSignals": "test/fixtures/vote/public.json",
+    "proofInput": "test/fixtures/vote/input.json",
+    "registry": "test/fixtures/registry/registry.json",
+    "deployment": "deployments/local/election.json"
+  },
+  "publicInputOrder": [
+    "nullifierHash",
+    "candidateId",
+    "electionId",
+    "merkleRoot"
+  ],
+  "calldataInput": [
+    "9949772996283065961028046280886251458800049835521251014398656492972427599980",
+    "1",
+    "1",
+    "7932749078796165988725230467181390602760147441196774940239533986225546804780"
+  ],
+  "publicSignals": [
+    "9949772996283065961028046280886251458800049835521251014398656492972427599980",
+    "1",
+    "1",
+    "7932749078796165988725230467181390602760147441196774940239533986225546804780"
+  ],
+  "expectedFromProofInput": [
+    "9949772996283065961028046280886251458800049835521251014398656492972427599980",
+    "1",
+    "1",
+    "7932749078796165988725230467181390602760147441196774940239533986225546804780"
+  ],
+  "deployment": {
+    "network": "localhost",
+    "chainId": "31337",
+    "electionId": "1",
+    "merkleRoot": "7932749078796165988725230467181390602760147441196774940239533986225546804780"
+  },
+  "checks": {
+    "calldataHasProofArrays": true,
+    "calldataInputCount": 4,
+    "calldataInputMatchesPublicSignals": true,
+    "calldataPublicSignalsMatchesPublicJson": true,
+    "calldataInputMatchesProofInputOrder": true,
+    "candidateMatchesProofInput": true,
+    "electionMatchesProofInput": true,
+    "merkleRootMatchesRegistry": true,
+    "deploymentAvailable": true,
+    "electionMatchesDeployment": true,
+    "merkleRootMatchesDeployment": true
+  },
+  "passed": true
+}

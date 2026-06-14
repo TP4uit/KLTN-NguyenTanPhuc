@@ -15,6 +15,67 @@ Use this file to record reproducible measurements and decisions for the KLTN vot
 
 ## Planned Experiments
 
+### 2026-06-14 - Evidence Benchmark and Audit Pack
+
+- Goal: Produce a reproducible evidence pack for thesis evaluation of the current ZK voting MVP.
+- Inputs:
+  - Registry fixture: `test/fixtures/registry/registry.json`
+  - Proof fixture: `test/fixtures/vote/proof.json`
+  - Public signals: `test/fixtures/vote/public.json`
+  - Solidity calldata: `test/fixtures/vote/calldata.json`
+  - Circuit artifacts: `circuits/vote.r1cs`, `circuits/vote_js/vote.wasm`, `vote_final.zkey`, `verification_key.json`
+  - Public input order: `input[0] = nullifierHash`, `input[1] = candidateId`, `input[2] = electionId`, `input[3] = merkleRoot`
+- Commands:
+  - `npm run audit:registry`
+  - `npm run audit:proof`
+  - `npm run audit:calldata`
+  - `npm run benchmark:proof`
+  - `npm run benchmark:gas`
+  - `npm run evidence:all`
+- Generated reports:
+  - `reports/evidence/audit-registry.json`
+  - `reports/evidence/audit-proof.json`
+  - `reports/evidence/audit-calldata.json`
+  - `reports/evidence/proof-benchmark.json`
+  - `reports/evidence/gas-benchmark.json`
+  - `docs/BENCHMARK_REPORT.md`
+- Environment:
+  - Node: `v24.14.1`
+  - Platform: `win32`
+  - Architecture: `x64`
+  - Gas benchmark network: local Hardhat development network through `network.create()`
+- Proof benchmark result:
+  - Constraints: `2502`
+  - Wires: `2508`
+  - Private inputs: `7`
+  - Public inputs: `4`
+  - `circuits/vote.r1cs`: `331684` bytes
+  - `circuits/vote_js/vote.wasm`: `1972906` bytes
+  - `vote_final.zkey`: `1171812` bytes
+  - Witness generation: `96ms`
+  - Groth16 proving: `740ms`
+  - Solidity calldata export: `0ms`
+  - Total proof workflow: `836ms`
+  - Benchmark command total including setup and R1CS info: `3606ms`
+- Gas benchmark result:
+  - `Groth16Verifier` deployment: `438877`
+  - `Election` deployment: `1016929`
+  - Valid `castVote`: `298680`
+  - Duplicate nullifier: reverted with `Loi: Cu tri nay da bo phieu!`
+  - Invalid candidate: reverted with `Invalid candidate`
+  - Invalid Merkle root: reverted with `Invalid Merkle root`
+  - Invalid proof: reverted with `Loi: ZK Proof khong hop le`
+- Audit result:
+  - Registry recomputation: passed.
+  - Proof verification: passed.
+  - Calldata consistency: passed.
+- Verification commands:
+  - `npm run evidence:all`: passed and regenerated all report artifacts.
+- Notes:
+  - Reverted transaction paths record readable reasons. The current local ethers/Hardhat error objects do not expose failed-path gas receipts.
+  - Gas measurements are local-development measurements for thesis comparison, not production cost predictions.
+  - Groth16 proof bytes remain randomized across proof generation runs while public signals remain stable for the same inputs.
+
 ### 2026-06-14 - Browser-Generated Proof Vote Submission
 
 - Goal: Move the Dashboard primary vote path from checked fixture calldata to browser-generated Groth16 proof calldata while preserving a candidate-1 fixture fallback.

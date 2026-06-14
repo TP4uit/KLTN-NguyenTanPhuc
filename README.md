@@ -114,6 +114,22 @@ Run the local fixture, deployment, and vote workflow together:
 npm run e2e:local
 ```
 
+Run the audit and benchmark evidence pack:
+
+```shell
+npm run evidence:all
+```
+
+Individual evidence commands are also available:
+
+```shell
+npm run audit:registry
+npm run audit:proof
+npm run audit:calldata
+npm run benchmark:proof
+npm run benchmark:gas
+```
+
 Run scoped test layers:
 
 ```shell
@@ -174,10 +190,16 @@ The Dashboard primary Vote buttons generate a fresh Groth16 proof in the browser
 
 Hardhat's in-process network is ephemeral between script runs. `scripts/vote-local.ts` validates the saved deployment metadata and recreates the same deterministic local contracts when needed before submitting the fixture vote. For MetaMask, keep `npx hardhat node` running and use `deploy:localhost` plus `vote:localhost`.
 
+## Evidence Reports
+
+`npm run evidence:all` regenerates machine-readable reports under `reports/evidence/` and writes the thesis-facing summary to `docs/BENCHMARK_REPORT.md`.
+
+The current evidence pack records registry root recomputation, Groth16 proof verification, calldata consistency, R1CS metrics, artifact sizes, local proof timings, deployment gas, valid vote gas, and expected revert behavior. Reverted paths record readable reasons, but the current local ethers/Hardhat error objects do not expose failed-path gas receipts.
+
 ## Current Roadmap
 
 1. Keep the local Merkle registry, proof, deploy, and vote flow reproducible.
-2. Record gas, proving, and constraint metrics for thesis evaluation.
+2. Keep the generated audit and benchmark evidence pack current as the MVP changes.
 3. Harden browser-side proof generation beyond the current local/demo secret and nullifier fixture.
 4. Decide whether any post-MVP registry update flow is needed, or keep immutable root publication as the thesis scope.
 5. Prepare production ceremony and deployment notes after the MVP flow stabilizes.

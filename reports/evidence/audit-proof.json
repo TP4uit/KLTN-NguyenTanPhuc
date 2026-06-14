@@ -1,0 +1,41 @@
+{
+  "kind": "audit-proof",
+  "generatedAt": "2026-06-14T05:29:16.737Z",
+  "environment": {
+    "node": "v24.14.1",
+    "platform": "win32",
+    "arch": "x64",
+    "cwd": "D:\\vscode\\KLTN-NguyenTanPhuc"
+  },
+  "inputs": {
+    "verificationKey": "verification_key.json",
+    "proof": "test/fixtures/vote/proof.json",
+    "publicSignals": "test/fixtures/vote/public.json",
+    "proofInput": "test/fixtures/vote/input.json"
+  },
+  "publicInputOrder": [
+    "nullifierHash",
+    "candidateId",
+    "electionId",
+    "merkleRoot"
+  ],
+  "publicSignals": [
+    "9949772996283065961028046280886251458800049835521251014398656492972427599980",
+    "1",
+    "1",
+    "7932749078796165988725230467181390602760147441196774940239533986225546804780"
+  ],
+  "expectedPublicSignals": [
+    "9949772996283065961028046280886251458800049835521251014398656492972427599980",
+    "1",
+    "1",
+    "7932749078796165988725230467181390602760147441196774940239533986225546804780"
+  ],
+  "checks": {
+    "proofValid": true,
+    "publicSignalCount": 4,
+    "expectedPublicSignalCount": 4,
+    "publicSignalOrderMatchesInputFixture": true
+  },
+  "passed": true
+}

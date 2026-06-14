@@ -1,0 +1,91 @@
+{
+  "kind": "proof-benchmark",
+  "generatedAt": "2026-06-14T05:29:22.646Z",
+  "environment": {
+    "node": "v24.14.1",
+    "platform": "win32",
+    "arch": "x64",
+    "cwd": "D:\\vscode\\KLTN-NguyenTanPhuc"
+  },
+  "inputs": {
+    "registry": "test/fixtures/registry/registry.json",
+    "r1cs": "circuits/vote.r1cs",
+    "wasm": "circuits/vote_js/vote.wasm",
+    "zkey": "vote_final.zkey"
+  },
+  "publicInputOrder": [
+    "nullifierHash",
+    "candidateId",
+    "electionId",
+    "merkleRoot"
+  ],
+  "circuit": {
+    "r1csInfo": {
+      "curve": "bn-128",
+      "wires": 2508,
+      "constraints": 2502,
+      "private_inputs": 7,
+      "public_inputs": 4,
+      "labels": 3680,
+      "outputs": 0
+    },
+    "r1csInfoRaw": "\u001b[32;22m[INFO]  \u001b[39;1msnarkJS\u001b[0m: Curve: bn-128\n\u001b[32;22m[INFO]  \u001b[39;1msnarkJS\u001b[0m: # of Wires: 2508\n\u001b[32;22m[INFO]  \u001b[39;1msnarkJS\u001b[0m: # of Constraints: 2502\n\u001b[32;22m[INFO]  \u001b[39;1msnarkJS\u001b[0m: # of Private Inputs: 7\n\u001b[32;22m[INFO]  \u001b[39;1msnarkJS\u001b[0m: # of Public Inputs: 4\n\u001b[32;22m[INFO]  \u001b[39;1msnarkJS\u001b[0m: # of Labels: 3680\n\u001b[32;22m[INFO]  \u001b[39;1msnarkJS\u001b[0m: # of Outputs: 0\n"
+  },
+  "artifactSizes": {
+    "r1cs": {
+      "path": "circuits/vote.r1cs",
+      "exists": true,
+      "bytes": 331684
+    },
+    "wasm": {
+      "path": "circuits/vote_js/vote.wasm",
+      "exists": true,
+      "bytes": 1972906
+    },
+    "zkey": {
+      "path": "vote_final.zkey",
+      "exists": true,
+      "bytes": 1171812
+    },
+    "verificationKey": {
+      "path": "verification_key.json",
+      "exists": true,
+      "bytes": 3477
+    },
+    "verifierSolidity": {
+      "path": "contracts/Verifier.sol",
+      "exists": true,
+      "bytes": 8224
+    },
+    "proofJson": {
+      "path": "test/fixtures/vote/proof.json",
+      "exists": true,
+      "bytes": 855
+    },
+    "publicSignalsJson": {
+      "path": "test/fixtures/vote/public.json",
+      "exists": true,
+      "bytes": 181
+    },
+    "calldataJson": {
+      "path": "test/fixtures/vote/calldata.json",
+      "exists": true,
+      "bytes": 1538
+    }
+  },
+  "proofWorkflow": {
+    "witnessGenerationMs": 96,
+    "groth16ProvingMs": 740,
+    "calldataExportMs": 0,
+    "totalProofWorkflowMs": 836,
+    "totalMeasuredMs": 3606,
+    "publicSignals": [
+      "9949772996283065961028046280886251458800049835521251014398656492972427599980",
+      "1",
+      "1",
+      "7932749078796165988725230467181390602760147441196774940239533986225546804780"
+    ],
+    "calldataLengthBytes": 843
+  },
+  "passed": true
+}
