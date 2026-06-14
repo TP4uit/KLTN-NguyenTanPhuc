@@ -11,18 +11,68 @@ contract Election {
     address public admin;
     Groth16Verifier public verifier;
     uint256 public immutable electionId;
-    uint256 public immutable merkleRoot;
+    uint256 public merkleRoot;
+
+    enum ElectionState {
+        Registration,
+        Open,
+        Closed
+    }
+
+    ElectionState public electionState;
 
     mapping(uint256 => bool) public usedNullifiers;
     mapping(uint256 => uint256) public voteCounts;
 
+    event MerkleRootUpdated(uint256 oldRoot, uint256 newRoot);
+    event ElectionOpened(uint256 electionId, uint256 merkleRoot);
+    event ElectionClosed(uint256 electionId);
     event VoteCast(uint256 indexed candidateId, uint256 nullifierHash);
+
+    modifier onlyAdmin() {
+        require(msg.sender == admin, "Only admin");
+        _;
+    }
 
     constructor(address _verifierAddress, uint256 _electionId, uint256 _merkleRoot) {
         admin = msg.sender;
         verifier = Groth16Verifier(_verifierAddress);
         electionId = _electionId;
         merkleRoot = _merkleRoot;
+        electionState = ElectionState.Registration;
+    }
+
+    function setMerkleRoot(uint256 newRoot) public onlyAdmin {
+        require(newRoot != 0, "Invalid Merkle root");
+        require(
+            electionState == ElectionState.Registration,
+            "Election not in registration"
+        );
+
+        uint256 oldRoot = merkleRoot;
+        merkleRoot = newRoot;
+
+        emit MerkleRootUpdated(oldRoot, newRoot);
+    }
+
+    function openElection() public onlyAdmin {
+        require(
+            electionState == ElectionState.Registration,
+            "Election not in registration"
+        );
+        require(merkleRoot != 0, "Invalid Merkle root");
+
+        electionState = ElectionState.Open;
+
+        emit ElectionOpened(electionId, merkleRoot);
+    }
+
+    function closeElection() public onlyAdmin {
+        require(electionState == ElectionState.Open, "Election not open");
+
+        electionState = ElectionState.Closed;
+
+        emit ElectionClosed(electionId);
     }
 
     function castVote(
@@ -31,6 +81,8 @@ contract Election {
         uint[2] memory c,
         uint[4] memory input
     ) public {
+        require(electionState == ElectionState.Open, "Election not open");
+
         // Public input order:
         // input[0] = nullifierHash
         // input[1] = candidateId

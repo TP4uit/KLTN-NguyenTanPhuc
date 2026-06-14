@@ -36,6 +36,11 @@ const candidateId = BigInt(voteCalldata.input[1]);
 const electionId = BigInt(voteCalldata.input[2]);
 const merkleRoot = BigInt(voteCalldata.input[3]);
 const registryMerkleRoot = BigInt(registryFixture.merkleRoot);
+const electionStates = {
+  Registration: 0n,
+  Open: 1n,
+  Closed: 2n,
+};
 
 function toPublicSignal(value: bigint): string {
   return `0x${value.toString(16).padStart(64, "0")}`;
@@ -128,7 +133,11 @@ describe("ZK voting election contract", function () {
     );
   }
 
-  it("deploys and stores the election configuration", async function () {
+  async function openElection(election: any) {
+    await election.openElection();
+  }
+
+  it("deploys in registration and stores the election configuration", async function () {
     const { election, owner } = await networkHelpers.loadFixture(
       deployElectionFixture,
     );
@@ -136,9 +145,125 @@ describe("ZK voting election contract", function () {
     expect(await election.admin()).to.equal(owner.address);
     expect(await election.electionId()).to.equal(electionId);
     expect(await election.merkleRoot()).to.equal(registryMerkleRoot);
+    expect(await election.electionState()).to.equal(electionStates.Registration);
     expect(await election.CANDIDATE_COUNT()).to.equal(4n);
     expect(await election.MIN_CANDIDATE_ID()).to.equal(1n);
     expect(await election.MAX_CANDIDATE_ID()).to.equal(4n);
+  });
+
+  it("allows the admin to update the Merkle root during registration", async function () {
+    const { election } = await networkHelpers.loadFixture(deployElectionFixture);
+    const newRoot = registryMerkleRoot + 123n;
+
+    await expect(election.setMerkleRoot(newRoot))
+      .to.emit(election, "MerkleRootUpdated")
+      .withArgs(registryMerkleRoot, newRoot);
+
+    expect(await election.merkleRoot()).to.equal(newRoot);
+  });
+
+  it("rejects Merkle root updates from non-admins", async function () {
+    const { election, voter1 } = await networkHelpers.loadFixture(
+      deployElectionFixture,
+    );
+
+    const voterElection = election.connect(voter1) as any;
+
+    await expect(voterElection.setMerkleRoot(registryMerkleRoot + 1n)).to.be.revertedWith(
+      "Only admin",
+    );
+  });
+
+  it("rejects a zero Merkle root update", async function () {
+    const { election } = await networkHelpers.loadFixture(deployElectionFixture);
+
+    await expect(election.setMerkleRoot(0n)).to.be.revertedWith(
+      "Invalid Merkle root",
+    );
+  });
+
+  it("does not allow Merkle root updates after the election opens", async function () {
+    const { election } = await networkHelpers.loadFixture(deployElectionFixture);
+
+    await openElection(election);
+
+    await expect(election.setMerkleRoot(registryMerkleRoot + 1n)).to.be.revertedWith(
+      "Election not in registration",
+    );
+  });
+
+  it("allows the admin to open the election", async function () {
+    const { election } = await networkHelpers.loadFixture(deployElectionFixture);
+
+    await expect(election.openElection())
+      .to.emit(election, "ElectionOpened")
+      .withArgs(electionId, registryMerkleRoot);
+
+    expect(await election.electionState()).to.equal(electionStates.Open);
+  });
+
+  it("does not allow non-admins to open or close the election", async function () {
+    const { election, voter1 } = await networkHelpers.loadFixture(
+      deployElectionFixture,
+    );
+
+    const voterElection = election.connect(voter1) as any;
+
+    await expect(voterElection.openElection()).to.be.revertedWith("Only admin");
+
+    await openElection(election);
+
+    await expect(voterElection.closeElection()).to.be.revertedWith("Only admin");
+  });
+
+  it("does not allow opening the election twice", async function () {
+    const { election } = await networkHelpers.loadFixture(deployElectionFixture);
+
+    await openElection(election);
+
+    await expect(election.openElection()).to.be.revertedWith(
+      "Election not in registration",
+    );
+  });
+
+  it("rejects opening an election without a Merkle root", async function () {
+    const verifier = await ethers.deployContract("Groth16Verifier");
+    const election = await ethers.deployContract("Election", [
+      await verifier.getAddress(),
+      electionId,
+      0n,
+    ]);
+
+    await expect(election.openElection()).to.be.revertedWith(
+      "Invalid Merkle root",
+    );
+  });
+
+  it("does not allow closing before the election is open", async function () {
+    const { election } = await networkHelpers.loadFixture(deployElectionFixture);
+
+    await expect(election.closeElection()).to.be.revertedWith("Election not open");
+  });
+
+  it("allows the admin to close the election", async function () {
+    const { election } = await networkHelpers.loadFixture(deployElectionFixture);
+
+    await openElection(election);
+
+    await expect(election.closeElection())
+      .to.emit(election, "ElectionClosed")
+      .withArgs(electionId);
+
+    expect(await election.electionState()).to.equal(electionStates.Closed);
+  });
+
+  it("does not allow closing the election twice", async function () {
+    const { election } = await networkHelpers.loadFixture(deployElectionFixture);
+
+    await openElection(election);
+    await election.closeElection();
+
+    await expect(election.closeElection()).to.be.revertedWith("Election not open");
   });
 
   it("initializes candidate vote counts to zero", async function () {
@@ -147,8 +272,16 @@ describe("ZK voting election contract", function () {
     expect(await election.getVotes(1)).to.equal(0n);
   });
 
+  it("rejects votes before the election opens", async function () {
+    const { election } = await networkHelpers.loadFixture(deployElectionFixture);
+
+    await expect(castFixtureVote(election)).to.be.revertedWith("Election not open");
+  });
+
   it("accepts a valid proof, emits VoteCast, and increments the candidate tally", async function () {
     const { election } = await networkHelpers.loadFixture(deployElectionFixture);
+
+    await openElection(election);
 
     await expect(castFixtureVote(election))
       .to.emit(election, "VoteCast")
@@ -161,6 +294,7 @@ describe("ZK voting election contract", function () {
   it("rejects replaying the same nullifier", async function () {
     const { election } = await networkHelpers.loadFixture(deployElectionFixture);
 
+    await openElection(election);
     await castFixtureVote(election);
 
     await expect(castFixtureVote(election)).to.be.revertedWith(
@@ -168,8 +302,19 @@ describe("ZK voting election contract", function () {
     );
   });
 
+  it("rejects votes after the election closes", async function () {
+    const { election } = await networkHelpers.loadFixture(deployElectionFixture);
+
+    await openElection(election);
+    await election.closeElection();
+
+    await expect(castFixtureVote(election)).to.be.revertedWith("Election not open");
+  });
+
   it("rejects a proof submitted for the wrong election", async function () {
     const { election } = await networkHelpers.loadFixture(deployElectionFixture);
+
+    await openElection(election);
 
     await expect(
       election.castVote(
@@ -184,6 +329,8 @@ describe("ZK voting election contract", function () {
   it("rejects a proof submitted with a tampered Merkle root before verifier execution", async function () {
     const { election } = await networkHelpers.loadFixture(deployElectionFixture);
 
+    await openElection(election);
+
     await expect(
       election.castVote(
         voteCalldata.a,
@@ -196,6 +343,8 @@ describe("ZK voting election contract", function () {
 
   it("rejects candidate 0 and candidate 5 in Solidity", async function () {
     const { election } = await networkHelpers.loadFixture(deployElectionFixture);
+
+    await openElection(election);
 
     for (const invalidCandidateId of [0n, 5n]) {
       await expect(
@@ -211,6 +360,8 @@ describe("ZK voting election contract", function () {
 
   it("rejects mismatched public inputs that pass Solidity bounds", async function () {
     const { election } = await networkHelpers.loadFixture(deployElectionFixture);
+
+    await openElection(election);
 
     await expect(
       election.castVote(
