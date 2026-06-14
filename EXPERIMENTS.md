@@ -15,6 +15,34 @@ Use this file to record reproducible measurements and decisions for the KLTN vot
 
 ## Planned Experiments
 
+### 2026-06-14 - Admin Lifecycle UI Integration
+
+- Goal: Add a local frontend admin page for election lifecycle management without changing the contract, circuit, verifier, browser proof flow, or fixture fallback.
+- Inputs:
+  - Contract metadata: `frontend/src/contracts/election.local.json`
+  - Frontend helper: `frontend/src/app/lib/localElection.ts`
+  - Admin page route: `/admin`
+  - Contract calls: `admin()`, `electionId()`, `merkleRoot()`, `electionState()`, `setMerkleRoot(uint256)`, `openElection()`, `closeElection()`
+- Implementation result:
+  - `/admin` shows connected wallet, contract address, admin address, whether the connected wallet is admin, election ID, Merkle root, and live lifecycle state.
+  - Admin actions are disabled unless the connected wallet is the contract admin and the election is in the matching lifecycle state.
+  - Non-admin users can view state and see `Only admin can manage election lifecycle.`
+  - Navigation now includes Admin alongside Proposals and Live Results.
+- Verification commands:
+  - `cd frontend && npm run build`: passed during implementation.
+- Manual browser smoke:
+  - Started `npm run node:local`.
+  - Deployed localhost with `LOCAL_ELECTION_AUTO_OPEN=false`, producing `Registration (0)`.
+  - Opened `/admin` with an injected MetaMask-compatible provider backed by the Hardhat admin account.
+  - Confirmed `/admin` displayed admin status, then called `openElection()` and reached `Open (1)`.
+  - Opened `/dashboard` and submitted a browser-generated vote for candidate `2`.
+  - Opened `/results` and confirmed Marcus Chen had `1 votes`.
+  - Returned to `/admin`, called `closeElection()`, and reached `Closed (2)`.
+  - Returned to `/dashboard` and confirmed a new vote attempt showed `Election is Closed. Voting is only available while the election is Open.`
+- Notes:
+  - The page is for local demo lifecycle control only.
+  - Dynamic on-chain registry insertion and production admin operations remain out of scope.
+
 ### 2026-06-14 - Lifecycle Evidence Benchmark and Audit Pass
 
 - Goal: Refresh the audit and benchmark evidence pack after adding the `Registration -> Open -> Closed` election lifecycle.

@@ -182,6 +182,15 @@ The Dashboard primary Vote buttons generate a fresh Groth16 proof in the browser
 
 `npm run deploy:localhost` auto-opens the election so browser voting works immediately. Set `LOCAL_ELECTION_AUTO_OPEN=false` to deploy and export metadata while staying in Registration. The Dashboard and Results pages display the live lifecycle state after MetaMask connects, and Dashboard refuses to submit votes unless the contract state is Open.
 
+Admin demo flow:
+
+```shell
+# Terminal 2, while npm run node:local is running
+$env:LOCAL_ELECTION_AUTO_OPEN='false'; npm run deploy:localhost; Remove-Item Env:LOCAL_ELECTION_AUTO_OPEN
+```
+
+Then open `/admin`, connect the Hardhat deployer/admin account in MetaMask, and use the Admin page to open the election. After that, use `/dashboard` to cast a browser-generated vote, `/results` to read the tally, and `/admin` again to close the election. Results remain readable after close, while Dashboard vote submission is blocked when the live lifecycle state is Closed.
+
 ## Local Metadata
 
 `npm run deploy:local` writes:

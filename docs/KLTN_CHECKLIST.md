@@ -83,6 +83,7 @@ Current foundation:
 - [x] Add an end-to-end test covering deployment, proof, vote, and tally.
 - [x] Add MVP/demo browser-side proof submission.
 - [x] Add local deployment and frontend lifecycle state wiring.
+- [x] Add local admin lifecycle control UI.
 - [ ] Add production identity and secret management.
 
 Current foundation:
@@ -97,6 +98,8 @@ Current foundation:
 - The Dashboard primary vote path generates browser proof calldata for the selected candidate and submits it through MetaMask.
 - A separate Dashboard fallback still submits the checked fixture proof for candidate 1.
 - Dashboard and Results can read the live election lifecycle state from localhost.
+- `/admin` can read contract/admin state and lets the connected admin set the Merkle root during Registration, open the election, and close the election.
+- Non-admin wallets can view `/admin` state but cannot execute lifecycle actions.
 - Results can read `Election.getVotes(1..4)` from localhost.
 - `frontend/public/zk/vote.wasm` and `frontend/public/zk/vote_final.zkey` provide local browser proving assets.
 - `frontend/src/contracts/registry.local.json` exports the selected demo voter secret, precomputed demo nullifier, selected election ID, and Merkle path for local-only browser proof experiments.

@@ -27,6 +27,13 @@ export type ElectionLifecycle = {
   electionStateName: ElectionStateName;
 };
 
+export type ElectionAdminState = ElectionLifecycle & {
+  admin: string;
+  electionId: string;
+  merkleRoot: string;
+  isAdmin: boolean;
+};
+
 export type VoteCalldata = {
   a: string[];
   b: string[][];
@@ -80,6 +87,18 @@ export function getMetadataElectionLifecycle(): ElectionLifecycle {
 
 export function formatAccount(account: string) {
   return `${account.slice(0, 6)}...${account.slice(-4)}`;
+}
+
+export function formatLongValue(value: string) {
+  if (value.length <= 18) {
+    return value;
+  }
+
+  return `${value.slice(0, 10)}...${value.slice(-8)}`;
+}
+
+export function isSameAddress(left?: string | null, right?: string | null) {
+  return typeof left === "string" && typeof right === "string" && left.toLowerCase() === right.toLowerCase();
 }
 
 function getRequiredEthereum() {
@@ -160,6 +179,26 @@ export async function readLiveElectionLifecycle(contract: Contract): Promise<Ele
   return {
     electionState,
     electionStateName: getElectionStateName(rawState),
+  };
+}
+
+export async function readElectionAdminState(
+  contract: Contract,
+  account?: string | null,
+): Promise<ElectionAdminState> {
+  const [admin, electionId, merkleRoot, lifecycle] = await Promise.all([
+    contract.admin(),
+    contract.electionId(),
+    contract.merkleRoot(),
+    readLiveElectionLifecycle(contract),
+  ]);
+
+  return {
+    ...lifecycle,
+    admin,
+    electionId: electionId.toString(),
+    merkleRoot: merkleRoot.toString(),
+    isAdmin: isSameAddress(account, admin),
   };
 }
 

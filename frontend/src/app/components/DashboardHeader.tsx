@@ -33,6 +33,12 @@ export function DashboardHeader() {
             >
               Live Results
             </Link>
+            <Link
+              to="/admin"
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${location.pathname === '/admin' ? 'bg-slate-100 text-slate-900' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'}`}
+            >
+              Admin
+            </Link>
           </nav>
         </div>
         

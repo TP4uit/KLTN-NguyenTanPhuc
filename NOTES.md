@@ -18,6 +18,7 @@
 - `npm run deploy:local` and `npm run vote:local` provide a reproducible in-process local deploy/vote path.
 - `npm run deploy:localhost` and `npm run vote:localhost` target a persistent `npx hardhat node` RPC for MetaMask and the Vite frontend.
 - The frontend can show the live election lifecycle state, generate a browser-side SnarkJS proof for the selected candidate, submit the generated calldata through MetaMask while the election is Open, keep the checked fixture submission as a candidate-1 fallback, and read local on-chain vote counts.
+- The frontend includes `/admin` for local admin lifecycle control: read contract/admin state, update the root during Registration, open the election, and close it.
 - The evidence pack records local proof timing, circuit metrics, artifact sizes, verifier and election deployment gas, lifecycle open/close gas, valid vote gas, and revert behavior for lifecycle and proof-validation paths.
 - Failed-path revert reasons are recorded. Failed-path gas receipts are not exposed by the current local ethers/Hardhat error objects.
 - Groth16 proof generation is randomized, so regenerating `proof.json` and `calldata.json` can change proof bytes while preserving the same public signals.
@@ -283,3 +284,14 @@ Commands run during the foundation pass:
 - Dashboard displays lifecycle state, refreshes it on MetaMask connect, and blocks both browser-generated and fixture fallback vote submission unless the live state is Open.
 - Results displays the live lifecycle state after connecting while keeping `Election.getVotes(1..4)` tally loading.
 - Dynamic on-chain registry insertion remains pending and out of scope for this lifecycle wiring pass.
+
+## 2026-06-14 Admin Lifecycle UI
+
+- Added `/admin` as a local admin control page using the existing Figma dashboard style.
+- The Admin page shows connected wallet, contract address, contract admin address, admin permission status, election ID, Merkle root, and live lifecycle state.
+- Admin-only actions are available for `setMerkleRoot(newRoot)` during Registration, `openElection()` during Registration, and `closeElection()` during Open.
+- Non-admin wallets can view state but lifecycle action buttons stay disabled with the message `Only admin can manage election lifecycle.`
+- `frontend/src/app/lib/localElection.ts` now includes helpers for admin/lifecycle reads and address comparison.
+- `DashboardHeader` links to Admin without removing Dashboard or Results navigation.
+- Local demo flow: deploy with `LOCAL_ELECTION_AUTO_OPEN=false`, open from `/admin`, vote from `/dashboard`, read `/results`, then close from `/admin`.
+- Manual browser smoke passed with an injected MetaMask-compatible EIP-1193 provider backed by the local Hardhat admin account: `/admin` opened the election, `/dashboard` cast a browser-generated vote, `/results` showed one vote for Marcus Chen, `/admin` closed the election, and Dashboard refused a new vote while Closed.
