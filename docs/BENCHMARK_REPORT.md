@@ -1,6 +1,6 @@
 # Benchmark and Audit Report
 
-Generated: 2026-06-14T05:29:26.286Z
+Generated: 2026-06-14T08:18:39.161Z
 
 This report summarizes reproducible evidence for the current KLTN ZK voting MVP. Machine-readable reports live under `reports/evidence/`.
 
@@ -34,7 +34,7 @@ input[3] = merkleRoot
 | zkey | 1,171,812 bytes |
 | verificationKey | 3,477 bytes |
 | verifierSolidity | 8,224 bytes |
-| proofJson | 855 bytes |
+| proofJson | 856 bytes |
 | publicSignalsJson | 181 bytes |
 | calldataJson | 1,538 bytes |
 
@@ -42,19 +42,31 @@ input[3] = merkleRoot
 
 | Step | Time |
 | --- | --- |
-| Witness generation | 96 ms |
-| Groth16 proving | 740 ms |
+| Witness generation | 95 ms |
+| Groth16 proving | 721 ms |
 | Solidity calldata export | 0 ms |
-| Total proof workflow | 836 ms |
-| Benchmark command total | 3606 ms |
+| Total proof workflow | 816 ms |
+| Benchmark command total | 3916 ms |
+
+## Election Lifecycle Benchmark
+
+| Step | Value |
+| --- | --- |
+| Initial state | Registration (0) |
+| openElection gas | 49560 |
+| State after openElection | Open (1) |
+| Vote before Open | reverted (Election not open) |
+| closeElection gas | 29926 |
+| State after closeElection | Closed (2) |
+| Vote after Closed | reverted (Election not open) |
 
 ## Gas Benchmark
 
 | Operation | Gas / Result |
 | --- | --- |
 | Groth16Verifier deployment | 438877 |
-| Election deployment | 1016929 |
-| Valid castVote | 298680 |
+| Election deployment | 1464152 |
+| Valid castVote | 303035 |
 | Duplicate nullifier | reverted (Loi: Cu tri nay da bo phieu!) |
 | Invalid candidate | reverted (Invalid candidate) |
 | Invalid Merkle root | reverted (Invalid Merkle root) |
@@ -79,7 +91,7 @@ input[3] = merkleRoot
 
 - Browser proof submission is MVP/demo only. The frontend uses local demo registry material and a precomputed local demo nullifier.
 - Production identity storage, voter registration, and key management are not implemented.
-- Dynamic on-chain Merkle insertion is not implemented; the MVP uses an immutable Merkle root.
+- Dynamic on-chain Merkle insertion is not implemented; the MVP finalizes the Merkle root through the election lifecycle before voting opens.
 - Gas measurements are from a local Hardhat development network and are intended for thesis comparison, not production cost prediction.
 - Reverted transaction paths record revert reasons. The local ethers/Hardhat error objects may not expose gas receipts for failed estimates.
 - Groth16 proof bytes are randomized across proof generation runs while public signals remain stable for the same inputs.

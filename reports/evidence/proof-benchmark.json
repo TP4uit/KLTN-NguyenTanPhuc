@@ -1,6 +1,6 @@
 {
   "kind": "proof-benchmark",
-  "generatedAt": "2026-06-14T05:29:22.646Z",
+  "generatedAt": "2026-06-14T08:18:35.265Z",
   "environment": {
     "node": "v24.14.1",
     "platform": "win32",
@@ -60,7 +60,7 @@
     "proofJson": {
       "path": "test/fixtures/vote/proof.json",
       "exists": true,
-      "bytes": 855
+      "bytes": 856
     },
     "publicSignalsJson": {
       "path": "test/fixtures/vote/public.json",
@@ -74,11 +74,11 @@
     }
   },
   "proofWorkflow": {
-    "witnessGenerationMs": 96,
-    "groth16ProvingMs": 740,
+    "witnessGenerationMs": 95,
+    "groth16ProvingMs": 721,
     "calldataExportMs": 0,
-    "totalProofWorkflowMs": 836,
-    "totalMeasuredMs": 3606,
+    "totalProofWorkflowMs": 816,
+    "totalMeasuredMs": 3916,
     "publicSignals": [
       "9949772996283065961028046280886251458800049835521251014398656492972427599980",
       "1",

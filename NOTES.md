@@ -18,7 +18,7 @@
 - `npm run deploy:local` and `npm run vote:local` provide a reproducible in-process local deploy/vote path.
 - `npm run deploy:localhost` and `npm run vote:localhost` target a persistent `npx hardhat node` RPC for MetaMask and the Vite frontend.
 - The frontend can show the live election lifecycle state, generate a browser-side SnarkJS proof for the selected candidate, submit the generated calldata through MetaMask while the election is Open, keep the checked fixture submission as a candidate-1 fallback, and read local on-chain vote counts.
-- The evidence pack records local proof timing, circuit metrics, artifact sizes, verifier and election deployment gas, valid vote gas, and revert behavior for duplicate nullifier, invalid candidate, invalid Merkle root, and invalid proof paths.
+- The evidence pack records local proof timing, circuit metrics, artifact sizes, verifier and election deployment gas, lifecycle open/close gas, valid vote gas, and revert behavior for lifecycle and proof-validation paths.
 - Failed-path revert reasons are recorded. Failed-path gas receipts are not exposed by the current local ethers/Hardhat error objects.
 - Groth16 proof generation is randomized, so regenerating `proof.json` and `calldata.json` can change proof bytes while preserving the same public signals.
 
@@ -246,22 +246,30 @@ Commands run during the foundation pass:
 
 - Added reproducible audit scripts for registry root recomputation, Groth16 proof verification, and Solidity calldata/public-input consistency.
 - Added proof benchmark evidence for R1CS metrics, artifact sizes, witness generation, Groth16 proving, and calldata export.
-- Added gas benchmark evidence for verifier deployment, election deployment, valid `castVote`, and expected revert behavior.
+- Added gas benchmark evidence for verifier deployment, election deployment, lifecycle open/close transactions, valid `castVote`, and expected revert behavior.
 - Generated reports live under `reports/evidence/`, and the thesis-friendly summary is `docs/BENCHMARK_REPORT.md`.
 - Latest generated proof benchmark:
   - Constraints: `2502`
-  - Witness generation: `96ms`
-  - Groth16 proving: `740ms`
-  - Total proof workflow: `836ms`
-  - Benchmark command total including setup and R1CS info: `3606ms`
+  - Witness generation: `95ms`
+  - Groth16 proving: `721ms`
+  - Total proof workflow: `816ms`
+  - Benchmark command total including setup and R1CS info: `3916ms`
 - Latest generated gas benchmark:
   - `Groth16Verifier` deployment: `438877`
-  - `Election` deployment: `1016929`
-  - Valid `castVote`: `298680`
+  - `Election` deployment: `1464152`
+  - Initial lifecycle state: `Registration (0)`
+  - `openElection`: `49560`
+  - State after open: `Open (1)`
+  - Vote before Open: reverted with `Election not open`
+  - Valid `castVote` after Open: `303035`
   - Duplicate nullifier: reverted with `Loi: Cu tri nay da bo phieu!`
   - Invalid candidate: reverted with `Invalid candidate`
   - Invalid Merkle root: reverted with `Invalid Merkle root`
   - Invalid proof: reverted with `Loi: ZK Proof khong hop le`
+  - `closeElection`: `29926`
+  - State after close: `Closed (2)`
+  - Vote after Closed: reverted with `Election not open`
+- Latest generated calldata audit includes deployment lifecycle metadata and verifies auto-open metadata reports `Open`.
 - Reverted transaction gas receipts are not available from the current local ethers/Hardhat error objects, so the evidence records rejection behavior and readable reasons for those paths.
 
 ## 2026-06-14 Deployment and Frontend Lifecycle Wiring

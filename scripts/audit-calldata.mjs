@@ -64,6 +64,10 @@ const checks = {
   merkleRootMatchesDeployment:
     deployment === null ||
     normalizedCalldataInput[3] === BigInt(deployment.merkleRoot).toString(),
+  autoOpenedDeploymentIsOpen:
+    deployment === null ||
+    deployment.autoOpened !== true ||
+    (deployment.electionState === 1 && deployment.electionStateName === "Open"),
 };
 
 const report = {
@@ -82,10 +86,13 @@ const report = {
   deployment: deployment === null
     ? null
     : {
-        network: deployment.network,
-        chainId: deployment.chainId,
-        electionId: deployment.electionId,
-        merkleRoot: deployment.merkleRoot,
+      network: deployment.network,
+      chainId: deployment.chainId,
+      electionId: deployment.electionId,
+      merkleRoot: deployment.merkleRoot,
+      electionState: deployment.electionState,
+      electionStateName: deployment.electionStateName,
+      autoOpened: deployment.autoOpened,
       },
   checks,
   passed:
@@ -98,7 +105,8 @@ const report = {
     checks.electionMatchesProofInput &&
     checks.merkleRootMatchesRegistry &&
     checks.electionMatchesDeployment &&
-    checks.merkleRootMatchesDeployment,
+    checks.merkleRootMatchesDeployment &&
+    checks.autoOpenedDeploymentIsOpen,
 };
 
 writeJson(reportPath, report);

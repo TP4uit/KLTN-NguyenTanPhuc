@@ -33,6 +33,14 @@ function status(value) {
   return value ? "PASS" : "FAIL";
 }
 
+function rejectionResult(rejection) {
+  if (rejection?.reverted !== true) {
+    return "n/a";
+  }
+
+  return `reverted (${rejection.reason})${rejection.gasUsed ? `, gas ${rejection.gasUsed}` : ""}`;
+}
+
 const proofBenchmark = loadOptional(proofBenchmarkPath, "proof benchmark");
 const gasBenchmark = loadOptional(gasBenchmarkPath, "gas benchmark");
 const auditProof = loadOptional(auditProofPath, "proof audit");
@@ -53,6 +61,7 @@ const artifactRows = proofBenchmark === null
 const circuit = proofBenchmark?.circuit?.r1csInfo ?? {};
 const proofWorkflow = proofBenchmark?.proofWorkflow ?? {};
 const gas = gasBenchmark?.deployments ?? {};
+const lifecycle = gasBenchmark?.lifecycle ?? {};
 const tx = gasBenchmark?.transactions ?? {};
 const rejections = tx.rejections ?? {};
 
@@ -94,6 +103,18 @@ ${artifactRows}
 | Total proof workflow | ${proofWorkflow.totalProofWorkflowMs ?? "n/a"} ms |
 | Benchmark command total | ${proofWorkflow.totalMeasuredMs ?? "n/a"} ms |
 
+## Election Lifecycle Benchmark
+
+| Step | Value |
+| --- | --- |
+| Initial state | ${lifecycle.initialState?.name ?? "n/a"} (${lifecycle.initialState?.value ?? "n/a"}) |
+| openElection gas | ${lifecycle.openElection?.gasUsed ?? "n/a"} |
+| State after openElection | ${lifecycle.afterOpenState?.name ?? "n/a"} (${lifecycle.afterOpenState?.value ?? "n/a"}) |
+| Vote before Open | ${rejectionResult(rejections.voteBeforeOpen)} |
+| closeElection gas | ${lifecycle.closeElection?.gasUsed ?? "n/a"} |
+| State after closeElection | ${lifecycle.afterCloseState?.name ?? "n/a"} (${lifecycle.afterCloseState?.value ?? "n/a"}) |
+| Vote after Closed | ${rejectionResult(rejections.voteAfterClosed)} |
+
 ## Gas Benchmark
 
 | Operation | Gas / Result |
@@ -101,10 +122,10 @@ ${artifactRows}
 | Groth16Verifier deployment | ${gas.verifier?.gasUsed ?? "n/a"} |
 | Election deployment | ${gas.election?.gasUsed ?? "n/a"} |
 | Valid castVote | ${tx.validCastVote?.gasUsed ?? "n/a"} |
-| Duplicate nullifier | ${rejections.duplicate?.reverted ? `reverted (${rejections.duplicate.reason})${rejections.duplicate.gasUsed ? `, gas ${rejections.duplicate.gasUsed}` : ""}` : "n/a"} |
-| Invalid candidate | ${rejections.invalidCandidate?.reverted ? `reverted (${rejections.invalidCandidate.reason})${rejections.invalidCandidate.gasUsed ? `, gas ${rejections.invalidCandidate.gasUsed}` : ""}` : "n/a"} |
-| Invalid Merkle root | ${rejections.invalidMerkleRoot?.reverted ? `reverted (${rejections.invalidMerkleRoot.reason})${rejections.invalidMerkleRoot.gasUsed ? `, gas ${rejections.invalidMerkleRoot.gasUsed}` : ""}` : "n/a"} |
-| Invalid proof | ${rejections.invalidProof?.reverted ? `reverted (${rejections.invalidProof.reason})${rejections.invalidProof.gasUsed ? `, gas ${rejections.invalidProof.gasUsed}` : ""}` : "n/a"} |
+| Duplicate nullifier | ${rejectionResult(rejections.duplicate)} |
+| Invalid candidate | ${rejectionResult(rejections.invalidCandidate)} |
+| Invalid Merkle root | ${rejectionResult(rejections.invalidMerkleRoot)} |
+| Invalid proof | ${rejectionResult(rejections.invalidProof)} |
 
 ## Audit Results
 
@@ -125,7 +146,7 @@ ${artifactRows}
 
 - Browser proof submission is MVP/demo only. The frontend uses local demo registry material and a precomputed local demo nullifier.
 - Production identity storage, voter registration, and key management are not implemented.
-- Dynamic on-chain Merkle insertion is not implemented; the MVP uses an immutable Merkle root.
+- Dynamic on-chain Merkle insertion is not implemented; the MVP finalizes the Merkle root through the election lifecycle before voting opens.
 - Gas measurements are from a local Hardhat development network and are intended for thesis comparison, not production cost prediction.
 - Reverted transaction paths record revert reasons. The local ethers/Hardhat error objects may not expose gas receipts for failed estimates.
 - Groth16 proof bytes are randomized across proof generation runs while public signals remain stable for the same inputs.

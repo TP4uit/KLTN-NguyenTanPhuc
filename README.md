@@ -198,7 +198,7 @@ Hardhat's in-process network is ephemeral between script runs. `scripts/vote-loc
 
 `npm run evidence:all` regenerates machine-readable reports under `reports/evidence/` and writes the thesis-facing summary to `docs/BENCHMARK_REPORT.md`.
 
-The current evidence pack records registry root recomputation, Groth16 proof verification, calldata consistency, R1CS metrics, artifact sizes, local proof timings, deployment gas, valid vote gas, and expected revert behavior. Reverted paths record readable reasons, but the current local ethers/Hardhat error objects do not expose failed-path gas receipts.
+The current evidence pack records registry root recomputation, Groth16 proof verification, calldata consistency, deployment lifecycle metadata checks, R1CS metrics, artifact sizes, local proof timings, deployment gas, `openElection`/`closeElection` gas, valid vote gas, and expected lifecycle/proof rejection behavior. Reverted paths record readable reasons, but the current local ethers/Hardhat error objects do not expose failed-path gas receipts.
 
 ## Current Roadmap
 

@@ -15,6 +15,56 @@ Use this file to record reproducible measurements and decisions for the KLTN vot
 
 ## Planned Experiments
 
+### 2026-06-14 - Lifecycle Evidence Benchmark and Audit Pass
+
+- Goal: Refresh the audit and benchmark evidence pack after adding the `Registration -> Open -> Closed` election lifecycle.
+- Inputs:
+  - Deployment metadata: `deployments/local/election.json`
+  - Gas benchmark report: `reports/evidence/gas-benchmark.json`
+  - Calldata audit report: `reports/evidence/audit-calldata.json`
+  - Human-readable report: `docs/BENCHMARK_REPORT.md`
+- Commands:
+  - `npm run audit:calldata`
+  - `npm run benchmark:gas`
+  - `npm run evidence:all`
+- Environment:
+  - Node: `v24.14.1`
+  - Platform: `win32`
+  - Architecture: `x64`
+  - Gas benchmark network: local Hardhat development network through `network.create()`
+- Lifecycle benchmark result:
+  - Initial state: `Registration (0)`
+  - `openElection` gas: `49560`
+  - State after open: `Open (1)`
+  - Vote before Open: reverted with `Election not open`
+  - `closeElection` gas: `29926`
+  - State after close: `Closed (2)`
+  - Vote after Closed: reverted with `Election not open`
+- Gas benchmark result:
+  - `Groth16Verifier` deployment: `438877`
+  - `Election` deployment: `1464152`
+  - Valid `castVote` after Open: `303035`
+  - Duplicate nullifier after Open: reverted with `Loi: Cu tri nay da bo phieu!`
+  - Invalid candidate after Open: reverted with `Invalid candidate`
+  - Invalid Merkle root after Open: reverted with `Invalid Merkle root`
+  - Invalid proof after Open: reverted with `Loi: ZK Proof khong hop le`
+- Calldata audit result:
+  - Calldata/public signal/proof input consistency: passed.
+  - Registry Merkle root consistency: passed.
+  - Deployment election ID/root consistency: passed.
+  - Auto-open metadata consistency: passed with `electionState = 1`, `electionStateName = Open`, and `autoOpened = true`.
+- Proof benchmark result from the same `evidence:all` run:
+  - Constraints: `2502`
+  - Witness generation: `95ms`
+  - Groth16 proving: `721ms`
+  - Total proof workflow: `816ms`
+  - Benchmark command total including setup and R1CS info: `3916ms`
+- Result:
+  - Lifecycle-aware gas benchmark, calldata audit, and `docs/BENCHMARK_REPORT.md` regenerated successfully.
+- Notes:
+  - Reverted transaction paths record readable reasons. The current local ethers/Hardhat error objects do not expose failed-path gas receipts.
+  - No circuit, zkey, verifier, frontend behavior, or dynamic registry insertion changes were made for this pass.
+
 ### 2026-06-14 - Evidence Benchmark and Audit Pack
 
 - Goal: Produce a reproducible evidence pack for thesis evaluation of the current ZK voting MVP.

@@ -38,6 +38,22 @@ function publicSignal(value: bigint) {
   return `0x${value.toString(16).padStart(64, "0")}`;
 }
 
+function electionStateNameFor(state: bigint) {
+  if (state === 0n) {
+    return "Registration";
+  }
+
+  if (state === 1n) {
+    return "Open";
+  }
+
+  if (state === 2n) {
+    return "Closed";
+  }
+
+  return `Unknown(${state})`;
+}
+
 function readableRevertReason(reason: string) {
   const quotedReason = reason.match(/reverted with reason string '([^']+)'/);
   if (quotedReason?.[1] !== undefined) {
@@ -134,6 +150,18 @@ async function deployBenchmarkElection() {
 const { verifier, verifierReceipt, election, electionReceipt } =
   await deployBenchmarkElection();
 
+const initialState = await election.electionState();
+
+const voteBeforeOpen = await measureRevert("vote before Open", async () =>
+  election.castVote(calldata.a, calldata.b, calldata.c, calldata.input, {
+    gasLimit: 5_000_000,
+  }),
+);
+
+const openTx = await election.openElection();
+const openReceipt = await openTx.wait();
+const openState = await election.electionState();
+
 const validTx = await election.castVote(
   calldata.a,
   calldata.b,
@@ -169,6 +197,7 @@ const invalidMerkleRoot = await measureRevert("invalid Merkle root", async () =>
 );
 
 const { election: invalidProofElection } = await deployBenchmarkElection();
+await invalidProofElection.openElection();
 const invalidProof = await measureRevert("invalid proof", async () =>
   invalidProofElection.castVote(
     calldata.a,
@@ -177,6 +206,16 @@ const invalidProof = await measureRevert("invalid proof", async () =>
     replaceInput(calldata, 1, 2n),
     { gasLimit: 5_000_000 },
   ),
+);
+
+const closeTx = await election.closeElection();
+const closeReceipt = await closeTx.wait();
+const closedState = await election.electionState();
+
+const voteAfterClosed = await measureRevert("vote after Closed", async () =>
+  election.castVote(calldata.a, calldata.b, calldata.c, calldata.input, {
+    gasLimit: 5_000_000,
+  }),
 );
 
 const report = {
@@ -209,6 +248,28 @@ const report = {
       gasUsed: electionReceipt?.gasUsed?.toString(),
     },
   },
+  lifecycle: {
+    initialState: {
+      value: initialState.toString(),
+      name: electionStateNameFor(initialState),
+    },
+    afterOpenState: {
+      value: openState.toString(),
+      name: electionStateNameFor(openState),
+    },
+    afterCloseState: {
+      value: closedState.toString(),
+      name: electionStateNameFor(closedState),
+    },
+    openElection: {
+      txHash: openReceipt?.hash,
+      gasUsed: openReceipt?.gasUsed?.toString(),
+    },
+    closeElection: {
+      txHash: closeReceipt?.hash,
+      gasUsed: closeReceipt?.gasUsed?.toString(),
+    },
+  },
   transactions: {
     validCastVote: {
       txHash: validReceipt?.hash,
@@ -217,20 +278,29 @@ const report = {
       updatedVotes: (await election.getVotes(candidateId)).toString(),
     },
     rejections: {
+      voteBeforeOpen,
       duplicate,
       invalidCandidate,
       invalidMerkleRoot,
       invalidProof,
+      voteAfterClosed,
     },
   },
   passed:
     verifierReceipt?.gasUsed !== undefined &&
     electionReceipt?.gasUsed !== undefined &&
+    initialState === 0n &&
+    openReceipt?.gasUsed !== undefined &&
+    openState === 1n &&
     validReceipt?.gasUsed !== undefined &&
     duplicate.reverted &&
     invalidCandidate.reverted &&
     invalidMerkleRoot.reverted &&
-    invalidProof.reverted,
+    invalidProof.reverted &&
+    closeReceipt?.gasUsed !== undefined &&
+    closedState === 2n &&
+    voteBeforeOpen.reverted &&
+    voteAfterClosed.reverted,
 };
 
 mkdirSync(evidenceDir, { recursive: true });

@@ -118,7 +118,8 @@ Current foundation:
 - Current circuit metrics are documented in `EXPERIMENTS.md`.
 - `scripts/audit-registry.mjs`, `scripts/audit-proof.mjs`, and `scripts/audit-calldata.mjs` write machine-readable audit reports under `reports/evidence/`.
 - `scripts/benchmark-proof.mjs` records R1CS metrics, artifact sizes, witness generation time, Groth16 proving time, and Solidity calldata export time.
-- `scripts/benchmark-gas.ts` records local Hardhat deployment gas, valid `castVote` gas, and rejection behavior for duplicate nullifier, invalid candidate, invalid Merkle root, and invalid proof paths.
+- `scripts/benchmark-gas.ts` records local Hardhat deployment gas, lifecycle open/close gas, valid `castVote` gas after Open, and rejection behavior for vote-before-Open, duplicate nullifier, invalid candidate, invalid Merkle root, invalid proof, and vote-after-Closed paths.
 - `npm run evidence:all` regenerates the evidence pack and `docs/BENCHMARK_REPORT.md`.
-- Latest generated evidence recorded 2502 constraints, 836 ms total proof workflow, 438877 verifier deployment gas, 1016929 election deployment gas, and 298680 gas for valid `castVote`.
+- Latest generated evidence recorded 2502 constraints, 816 ms total proof workflow, 438877 verifier deployment gas, 1464152 election deployment gas, 49560 gas for `openElection`, 303035 gas for valid `castVote`, and 29926 gas for `closeElection`.
+- `scripts/audit-calldata.mjs` includes deployment lifecycle metadata and verifies auto-open metadata reports `Open`.
 - Reverted paths record clear reasons; the local ethers/Hardhat error objects do not expose gas receipts for those failed paths in the current benchmark.
