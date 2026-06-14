@@ -48,13 +48,29 @@ if (deploymentMerkleRoot !== calldataMerkleRoot) {
   );
 }
 
-const { ethers } = await network.create();
+const connection = await network.create();
+const { ethers } = connection;
+const providerNetwork = await ethers.provider.getNetwork();
+const providerChainId = providerNetwork.chainId;
+const deploymentChainId = BigInt(deployment.chainId);
+
+if (providerChainId !== deploymentChainId) {
+  throw new Error(
+    `Connected chainId ${providerChainId} does not match deployment JSON ${deploymentChainId}. Run the matching deploy script for ${connection.networkName}.`,
+  );
+}
 
 async function recreateEphemeralDeploymentIfNeeded() {
   const currentCode = await ethers.provider.getCode(deployment.election.address);
 
   if (currentCode !== "0x") {
     return;
+  }
+
+  if (connection.networkConfig.type !== "edr-simulated") {
+    throw new Error(
+      `No Election contract code found at ${deployment.election.address} on ${connection.networkName}. Run \`npm run deploy:localhost\` while \`npx hardhat node\` is running.`,
+    );
   }
 
   const verifier = await ethers.deployContract("Groth16Verifier");

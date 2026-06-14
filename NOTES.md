@@ -14,7 +14,9 @@
 ## Known Gaps
 
 - The MVP has an off-chain Merkle registry helper, circuit-level Merkle membership, and immutable on-chain Merkle root publication. Dynamic insertion is not implemented yet.
-- `npm run deploy:local` and `npm run vote:local` now provide a reproducible local deploy/vote path. The frontend consumes exported metadata only; UI wiring is not implemented yet.
+- `npm run deploy:local` and `npm run vote:local` provide a reproducible in-process local deploy/vote path.
+- `npm run deploy:localhost` and `npm run vote:localhost` target a persistent `npx hardhat node` RPC for MetaMask and the Vite frontend.
+- The frontend can submit the exported fixture proof and read local on-chain vote counts. Browser-side SnarkJS proof generation is not implemented yet.
 - Vote gas for a valid fixture vote has been collected once. Verifier deployment gas and duplicate-nullifier failure gas are still pending.
 - Groth16 proof generation is randomized, so regenerating `proof.json` and `calldata.json` can change proof bytes while preserving the same public signals.
 
@@ -49,7 +51,7 @@ Commands run during the foundation pass:
 ## Remaining Blockers
 
 - Dynamic on-chain Merkle insertion is still planned work.
-- Frontend vote submission and result display wiring are still pending.
+- Browser-side proof generation is still pending; the frontend currently submits `frontend/src/contracts/vote.calldata.local.json`.
 - Verifier deployment gas and duplicate-nullifier failure gas are still pending.
 - Avoid running `hardhat build` and `hardhat test` concurrently in the same working tree; a parallel verification attempt caused a transient Hardhat build-info file move error.
 - In the managed Codex sandbox, Hardhat commands may need approval because Hardhat creates `C:\Users\USER\AppData\Roaming\hardhat-nodejs\Config`. Outside the sandbox, run the same `npm` commands normally.
@@ -156,3 +158,33 @@ Commands run during the foundation pass:
   - Gas used: `298680`
   - Candidate ID: `1`
   - Updated votes: `1`
+
+## 2026-06-14 Persistent Localhost Frontend Wiring
+
+- Added `node:local`, `deploy:localhost`, and `vote:localhost` npm scripts for the persistent RPC flow used by MetaMask.
+- `scripts/deploy-local.ts` now records the actual Hardhat connection name, network type, and chain ID in local deployment metadata.
+- `scripts/vote-local.ts` keeps the in-process deterministic redeploy behavior for `vote:local`, but fails clearly on HTTP localhost if contract code is missing and tells the user to run `deploy:localhost`.
+- `scripts/proof-calldata.mjs` now also exports the checked fixture to `frontend/src/contracts/vote.calldata.local.json`.
+- The Figma Dashboard connects MetaMask, reads `election.local.json` and `vote.calldata.local.json`, and submits `Election.castVote(a, b, c, input)` with the existing proof fixture.
+- The Results page can load `Election.getVotes(1..4)` from localhost and replace the mock totals when MetaMask is connected.
+- This is fixture-proof submission only. It does not generate a fresh SnarkJS proof in the browser.
+
+## 2026-06-14 Persistent Localhost Verification
+
+- `npm run frontend:sync-fixtures`: passed and exported `frontend/src/contracts/vote.calldata.local.json`.
+- `cd frontend && npm install`: passed and added frontend `ethers`.
+- `npm run build`: passed with `No contracts to compile`.
+- `npm test`: passed with 15 Mocha tests.
+- `npm run typecheck`: passed.
+- `npm run deploy:localhost`: passed against a temporary `npx hardhat node`.
+  - Network: `localhost`
+  - Chain ID: `31337`
+  - Verifier: `0x5FbDB2315678afecb367f032d93F642f64180aa3`
+  - Election: `0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512`
+- `npm run vote:localhost`: passed against the same temporary node.
+  - Gas used: `298680`
+  - Candidate ID: `1`
+  - Updated votes: `1`
+- `npm run vote:local`: passed after the localhost changes and preserved the in-process deterministic redeploy behavior.
+- `cd frontend && npm run build`: passed. Vite reported a large bundle warning.
+- A temporary Vite dev server started successfully at `http://127.0.0.1:5173/`. The in-app Browser plugin was unavailable in this session, so visual browser inspection was not completed.

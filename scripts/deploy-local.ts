@@ -30,7 +30,8 @@ const registry = readJson(registryPath, "registry fixture");
 const electionArtifact = readJson(electionArtifactPath, "Election artifact");
 const electionId = BigInt(process.env.LOCAL_ELECTION_ID ?? "1");
 const merkleRoot = BigInt(registry.merkleRoot);
-const { ethers } = await network.create();
+const connection = await network.create();
+const { ethers } = connection;
 const [deployer] = await ethers.getSigners();
 const providerNetwork = await ethers.provider.getNetwork();
 
@@ -55,7 +56,8 @@ const publicInputOrder = [
 ];
 
 const metadata = {
-  network: "hardhat-local",
+  network: connection.networkName,
+  networkType: connection.networkConfig.type,
   chainId: providerNetwork.chainId.toString(),
   deployer: deployer.address,
   verifierAddress,

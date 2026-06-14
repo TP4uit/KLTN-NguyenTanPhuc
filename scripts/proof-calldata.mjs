@@ -13,6 +13,8 @@ const proofPath = resolve(fixtureDir, "proof.json");
 const publicPath = resolve(fixtureDir, "public.json");
 const calldataPath = resolve(fixtureDir, "calldata.json");
 const rawCalldataPath = resolve(fixtureDir, "calldata.txt");
+const frontendContractsDir = resolve(rootDir, "frontend", "src", "contracts");
+const frontendCalldataPath = resolve(frontendContractsDir, "vote.calldata.local.json");
 
 if (!existsSync(proofPath) || !existsSync(publicPath)) {
   throw new Error("Missing proof fixture. Run `npm run proof:generate` first.");
@@ -38,10 +40,12 @@ const calldata = {
 
 writeFileSync(rawCalldataPath, `${rawCalldata}\n`);
 writeFileSync(calldataPath, `${JSON.stringify(calldata, null, 2)}\n`);
+writeFileSync(frontendCalldataPath, `${JSON.stringify(calldata, null, 2)}\n`);
 
 console.log("Exported Solidity calldata fixture");
 console.log(`  calldata: ${calldataPath}`);
 console.log(`  raw calldata: ${rawCalldataPath}`);
+console.log(`  frontend calldata: ${frontendCalldataPath}`);
 console.log(`  input[0] nullifierHash: ${input[0]}`);
 console.log(`  input[1] candidateId: ${input[1]}`);
 console.log(`  input[2] electionId: ${input[2]}`);

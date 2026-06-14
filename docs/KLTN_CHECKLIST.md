@@ -78,7 +78,7 @@ Current foundation:
 
 - [ ] Define off-chain flow: register voter, build witness, prove, submit vote.
 - [x] Add script for local proof generation and vote submission.
-- [ ] Add frontend wiring for proof generation or proof submission.
+- [x] Add frontend wiring for proof generation or proof submission.
 - [x] Add an end-to-end test covering deployment, proof, vote, and tally.
 
 Current foundation:
@@ -87,7 +87,11 @@ Current foundation:
 - `scripts/proof-generate.mjs` and `scripts/proof-calldata.mjs` generate a local proof and verifier calldata for contract tests.
 - `scripts/deploy-local.ts` writes local deployment metadata to `deployments/local/election.json`.
 - `scripts/vote-local.ts` validates deployment/proof calldata consistency and submits a local fixture vote.
-- `frontend/src/contracts/election.local.json` exports local contract metadata and ABI for future UI wiring.
+- `npm run deploy:localhost` and `npm run vote:localhost` target a persistent `npx hardhat node` RPC for MetaMask.
+- `frontend/src/contracts/election.local.json` exports local contract metadata and ABI for UI wiring.
+- `frontend/src/contracts/vote.calldata.local.json` exports the checked fixture proof calldata for local browser submission.
+- The Dashboard submits the fixture proof through MetaMask, and Results can read `Election.getVotes(1..4)` from localhost.
+- This is fixture-proof submission only; browser-side SnarkJS proof generation is still out of scope.
 
 ## Gas, Proving, and Constraint Metrics
 

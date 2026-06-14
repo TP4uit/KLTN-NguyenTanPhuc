@@ -2,7 +2,7 @@
 
 This repository is the foundation for a KLTN thesis MVP that demonstrates anonymous, verifiable voting with zero-knowledge proofs. The current vertical slice lets a registered voter prove Merkle membership off-chain, submit one private vote on-chain, prevent double voting with a nullifier, and publish a verifiable candidate tally.
 
-The project is still intentionally scoped as an MVP foundation. Dynamic voter registration, production ceremonies, and frontend vote submission are future work.
+The project is still intentionally scoped as an MVP foundation. Dynamic voter registration, production ceremonies, and browser-side proof generation are future work.
 
 ## Architecture
 
@@ -15,7 +15,7 @@ The project is still intentionally scoped as an MVP foundation. Dynamic voter re
 - `scripts/vote-local.ts`: reads the deployment metadata and calldata fixture, validates root/election ID consistency, submits `Election.castVote`, and prints transaction metrics.
 - `ignition/modules/Election.ts`: Hardhat Ignition module for verifier-first election deployment.
 - `test/Election.test.ts`: TypeScript integration tests for registry helpers, verifier-backed voting, invalid proof paths, replay prevention, and candidate bounds.
-- `frontend/`: Vite frontend foundation. Local contract metadata is exported to `frontend/src/contracts/election.local.json`; UI wiring is not implemented yet.
+- `frontend/`: Vite frontend foundation. Local contract metadata is exported to `frontend/src/contracts/election.local.json`, and the checked proof fixture is exported to `frontend/src/contracts/vote.calldata.local.json` for local MetaMask submission.
 
 ## Public Inputs
 
@@ -84,10 +84,22 @@ Deploy the local verifier and election contract:
 npm run deploy:local
 ```
 
+Deploy to a persistent Hardhat node for MetaMask:
+
+```shell
+npm run deploy:localhost
+```
+
 Submit the generated vote fixture to the local election:
 
 ```shell
 npm run vote:local
+```
+
+Submit the generated vote fixture through the persistent localhost RPC:
+
+```shell
+npm run vote:localhost
 ```
 
 Run the local fixture, deployment, and vote workflow together:
@@ -110,20 +122,55 @@ cd frontend
 npm run dev
 ```
 
+## Local Browser Flow
+
+Use this flow when testing the Figma frontend with MetaMask.
+
+Terminal 1:
+
+```shell
+npx hardhat node
+```
+
+Terminal 2:
+
+```shell
+npm run registry:generate && npm run proof:generate && npm run proof:calldata && npm run deploy:localhost
+```
+
+Terminal 3:
+
+```shell
+cd frontend
+npm install
+npm run dev
+```
+
+In MetaMask, add or select the localhost network:
+
+- RPC URL: `http://127.0.0.1:8545`
+- Chain ID: `31337`
+- Currency symbol: `ETH`
+
+Import one of the funded Hardhat test accounts from the `npx hardhat node` output if MetaMask does not already have a funded localhost account.
+
+The frontend currently submits the checked fixture proof from `frontend/src/contracts/vote.calldata.local.json`. It does not generate a fresh proof in the browser yet, so the default fixture vote is bound to candidate `1`.
+
 ## Local Metadata
 
 `npm run deploy:local` writes:
 
 - `deployments/local/election.json`: network name, chain ID, deployer, verifier address, election address, election ID, Merkle root, candidate bounds, timestamp, and public input order.
-- `frontend/src/contracts/election.local.json`: the same metadata plus the `Election` ABI for future frontend integration.
+- `frontend/src/contracts/election.local.json`: the same metadata plus the `Election` ABI for frontend integration.
+- `frontend/src/contracts/vote.calldata.local.json`: the fixture proof calldata exported by `npm run proof:calldata` or `npm run frontend:sync-fixtures`.
 
-Hardhat's in-process network is ephemeral between script runs. `scripts/vote-local.ts` validates the saved deployment metadata and recreates the same deterministic local contracts when needed before submitting the fixture vote.
+Hardhat's in-process network is ephemeral between script runs. `scripts/vote-local.ts` validates the saved deployment metadata and recreates the same deterministic local contracts when needed before submitting the fixture vote. For MetaMask, keep `npx hardhat node` running and use `deploy:localhost` plus `vote:localhost`.
 
 ## Current Roadmap
 
 1. Keep the local Merkle registry, proof, deploy, and vote flow reproducible.
 2. Record gas, proving, and constraint metrics for thesis evaluation.
-3. Add frontend wiring for proof submission and results display.
+3. Add browser-side proof generation after the fixture-proof submission flow is stable.
 4. Decide whether any post-MVP registry update flow is needed, or keep immutable root publication as the thesis scope.
 5. Prepare production ceremony and deployment notes after the MVP flow stabilizes.
 

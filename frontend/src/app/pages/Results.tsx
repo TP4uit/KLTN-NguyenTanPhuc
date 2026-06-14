@@ -1,23 +1,75 @@
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
-import { Activity, Users, Box, ArrowUpRight } from 'lucide-react';
+import { Activity, Users, Box, ArrowUpRight, Loader2, RefreshCw, Wallet } from 'lucide-react';
 import { motion } from 'motion/react';
+import { useEffect, useState } from 'react';
 import { ImageWithFallback } from '../components/figma/ImageWithFallback';
 import { DashboardHeader } from '../components/DashboardHeader';
+import { connectLocalElection, formatAccount, getConnectedLocalElection, localElection } from '../lib/localElection';
 
 const mockResults = [
-  { id: "c3", name: "David Okafor", title: "Community Lead", votes: 2150, color: "#3b82f6", image: "https://images.unsplash.com/photo-1560073743-0a45c01b68c4?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxzbWlsaW5nJTIwcHJvZmVzc2lvbmFsJTIwbWFufGVufDF8fHx8MTc3NjA0MzY3NHww&ixlib=rb-4.1.0&q=80&w=1080" },
-  { id: "c1", name: "Elena Rostova", title: "DeFi Strategist", votes: 1420, color: "#8b5cf6", image: "https://images.unsplash.com/photo-1689600944138-da3b150d9cb8?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxwcm9mZXNzaW9uYWwlMjBoZWFkc2hvdCUyMHdvbWFufGVufDF8fHx8MTc3NTkyNTMyOHww&ixlib=rb-4.1.0&q=80&w=1080" },
-  { id: "c2", name: "Marcus Chen", title: "Core Developer", votes: 980, color: "#10b981", image: "https://images.unsplash.com/photo-1652471943570-f3590a4e52ed?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxwcm9mZXNzaW9uYWwlMjBoZWFkc2hvdCUyMG1hbnxlbnwxfHx8fDE3NzYwNDM2NzR8MA&ixlib=rb-4.1.0&q=80&w=1080" },
-  { id: "c4", name: "Sarah Jenkins", title: "Security Researcher", votes: 845, color: "#f59e0b", image: "https://images.unsplash.com/photo-1623594675959-02360202d4d6?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxzbWlsaW5nJTIwcHJvZmVzc2lvbmFsJTIwd29tYW58ZW58MXx8fHwxNzc2MDQzNjc0fDA&ixlib=rb-4.1.0&q=80&w=1080" }
+  { id: "c3", candidateId: 3, name: "David Okafor", title: "Community Lead", votes: 2150, color: "#3b82f6", image: "https://images.unsplash.com/photo-1560073743-0a45c01b68c4?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxzbWlsaW5nJTIwcHJvZmVzc2lvbmFsJTIwbWFufGVufDF8fHx8MTc3NjA0MzY3NHww&ixlib=rb-4.1.0&q=80&w=1080" },
+  { id: "c1", candidateId: 1, name: "Elena Rostova", title: "DeFi Strategist", votes: 1420, color: "#8b5cf6", image: "https://images.unsplash.com/photo-1689600944138-da3b150d9cb8?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxwcm9mZXNzaW9uYWwlMjBoZWFkc2hvdCUyMHdvbWFufGVufDF8fHx8MTc3NTkyNTMyOHww&ixlib=rb-4.1.0&q=80&w=1080" },
+  { id: "c2", candidateId: 2, name: "Marcus Chen", title: "Core Developer", votes: 980, color: "#10b981", image: "https://images.unsplash.com/photo-1652471943570-f3590a4e52ed?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxwcm9mZXNzaW9uYWwlMjBoZWFkc2hvdCUyMG1hbnxlbnwxfHx8fDE3NzYwNDM2NzR8MA&ixlib=rb-4.1.0&q=80&w=1080" },
+  { id: "c4", candidateId: 4, name: "Sarah Jenkins", title: "Security Researcher", votes: 845, color: "#f59e0b", image: "https://images.unsplash.com/photo-1623594675959-02360202d4d6?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxzbWlsaW5nJTIwcHJvZmVzc2lvbmFsJTIwd29tYW58ZW58MXx8fHwxNzc2MDQzNjc0fDA&ixlib=rb-4.1.0&q=80&w=1080" }
 ];
 
 export function Results() {
-  const totalVotes = mockResults.reduce((sum, c) => sum + c.votes, 0);
+  const [results, setResults] = useState(mockResults);
+  const [account, setAccount] = useState<string | null>(null);
+  const [latestBlock, setLatestBlock] = useState<number | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isOnChain, setIsOnChain] = useState(false);
+  const [statusMessage, setStatusMessage] = useState("Connect MetaMask to load localhost vote counts.");
+  const displayResults = isOnChain ? [...results].sort((a, b) => b.votes - a.votes) : results;
+  const totalVotes = displayResults.reduce((sum, c) => sum + c.votes, 0);
+
+  const loadResults = async (requestAccount: boolean) => {
+    setIsRefreshing(true);
+
+    try {
+      const connection = requestAccount ? await connectLocalElection() : await getConnectedLocalElection();
+
+      if (!connection) {
+        setStatusMessage("Connect MetaMask to load localhost vote counts.");
+        return;
+      }
+
+      const counts = await Promise.all([1, 2, 3, 4].map((candidateId) => connection.contract.getVotes(candidateId)));
+      const blockNumber = await connection.provider.getBlockNumber();
+
+      setAccount(connection.account);
+      setLatestBlock(blockNumber);
+      setResults((current) =>
+        current.map((candidate) => ({
+          ...candidate,
+          votes: Number(counts[candidate.candidateId - 1]),
+        })),
+      );
+      setIsOnChain(true);
+      setStatusMessage(`Loaded on-chain tallies from ${localElection.network}.`);
+    } catch (error) {
+      setStatusMessage(error instanceof Error ? error.message : "Unable to load on-chain vote counts.");
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
+  useEffect(() => {
+    void loadResults(false);
+  }, []);
+
+  const percentageFor = (votes: number) => {
+    if (totalVotes === 0) {
+      return "0.0";
+    }
+
+    return ((votes / totalVotes) * 100).toFixed(1);
+  };
 
   const CustomTooltip = ({ active, payload }: any) => {
     if (active && payload && payload.length) {
       const data = payload[0].payload;
-      const percentage = ((data.votes / totalVotes) * 100).toFixed(1);
+      const percentage = percentageFor(data.votes);
       return (
         <div className="bg-white p-4 border border-slate-200 shadow-xl rounded-xl min-w-[200px]">
           <p className="font-semibold text-slate-900 text-lg mb-1">{data.name}</p>
@@ -48,7 +100,16 @@ export function Results() {
             <p className="text-lg text-slate-600 max-w-2xl">
               Real-time cryptographic tallying for the current governance proposals.
             </p>
+            <p className="text-sm text-slate-500 mt-2">{statusMessage}</p>
           </div>
+          <button
+            onClick={() => loadResults(true)}
+            disabled={isRefreshing}
+            className="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {isRefreshing ? <Loader2 className="h-4 w-4 animate-spin" /> : account ? <RefreshCw className="h-4 w-4" /> : <Wallet className="h-4 w-4" />}
+            {account ? `Refresh ${formatAccount(account)}` : "Connect MetaMask"}
+          </button>
         </div>
 
         {/* Stats Row */}
@@ -83,8 +144,8 @@ export function Results() {
             </div>
             <div>
               <p className="text-sm font-medium text-slate-500 mb-1">Blocks Processed</p>
-              <p className="text-3xl font-bold text-slate-900">14,205</p>
-              <p className="text-xs text-slate-500 mt-1">Latest block sync: 2s ago</p>
+              <p className="text-3xl font-bold text-slate-900">{latestBlock?.toLocaleString() ?? "14,205"}</p>
+              <p className="text-xs text-slate-500 mt-1">{isOnChain ? "Latest localhost block" : "Mock display until connected"}</p>
             </div>
           </motion.div>
         </div>
@@ -99,7 +160,7 @@ export function Results() {
           <h2 className="text-xl font-bold text-slate-900 mb-6">Vote Distribution</h2>
           <div className="h-[350px] w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={mockResults} layout="vertical" margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+              <BarChart data={displayResults} layout="vertical" margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#e2e8f0" />
                 <XAxis type="number" hide />
                 <YAxis 
@@ -112,7 +173,7 @@ export function Results() {
                 />
                 <Tooltip content={<CustomTooltip />} cursor={{ fill: '#f8fafc' }} />
                 <Bar dataKey="votes" radius={[0, 6, 6, 0]} barSize={40} animationDuration={1500}>
-                  {mockResults.map((entry, index) => (
+                  {displayResults.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={entry.color} />
                   ))}
                 </Bar>
@@ -134,8 +195,8 @@ export function Results() {
           </div>
           
           <div className="divide-y divide-slate-100">
-            {mockResults.map((candidate, index) => {
-              const percentage = ((candidate.votes / totalVotes) * 100).toFixed(1);
+            {displayResults.map((candidate, index) => {
+              const percentage = percentageFor(candidate.votes);
               return (
                 <div key={candidate.id} className="p-4 sm:p-6 flex flex-col sm:flex-row sm:items-center gap-4 hover:bg-slate-50 transition-colors">
                   {/* Rank & Avatar */}

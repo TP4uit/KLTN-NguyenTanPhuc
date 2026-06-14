@@ -7,7 +7,10 @@
     "build": "hardhat build",
     "compile": "hardhat build",
     "deploy:local": "hardhat run scripts/deploy-local.ts",
+    "deploy:localhost": "hardhat --network localhost run scripts/deploy-local.ts",
     "e2e:local": "npm run registry:generate && npm run proof:generate && npm run proof:calldata && npm run deploy:local && npm run vote:local",
+    "frontend:sync-fixtures": "node scripts/proof-calldata.mjs",
+    "node:local": "hardhat node",
     "proof:calldata": "node scripts/proof-calldata.mjs",
     "proof:generate": "node scripts/proof-generate.mjs && node scripts/proof-calldata.mjs",
     "registry:generate": "node scripts/registry-generate.mjs",
@@ -15,7 +18,8 @@
     "test:mocha": "hardhat test mocha",
     "test:solidity": "hardhat test solidity",
     "typecheck": "tsc --noEmit",
-    "vote:local": "hardhat run scripts/vote-local.ts"
+    "vote:local": "hardhat run scripts/vote-local.ts",
+    "vote:localhost": "hardhat --network localhost run scripts/vote-local.ts"
   },
   "repository": {
     "type": "git",
