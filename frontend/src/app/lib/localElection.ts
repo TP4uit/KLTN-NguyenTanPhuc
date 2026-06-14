@@ -9,6 +9,8 @@ type EthereumProvider = Eip1193Provider & {
 type ElectionMetadata = {
   network: string;
   chainId: string;
+  electionId: string;
+  merkleRoot: string;
   election: {
     address: string;
   };

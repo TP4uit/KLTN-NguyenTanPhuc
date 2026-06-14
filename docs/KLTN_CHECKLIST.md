@@ -91,7 +91,11 @@ Current foundation:
 - `frontend/src/contracts/election.local.json` exports local contract metadata and ABI for UI wiring.
 - `frontend/src/contracts/vote.calldata.local.json` exports the checked fixture proof calldata for local browser submission.
 - The Dashboard submits the fixture proof through MetaMask, and Results can read `Election.getVotes(1..4)` from localhost.
-- This is fixture-proof submission only; browser-side SnarkJS proof generation is still out of scope.
+- `frontend/public/zk/vote.wasm` and `frontend/public/zk/vote_final.zkey` provide local browser proving assets.
+- `frontend/src/contracts/registry.local.json` exports the selected demo voter secret, precomputed demo nullifier, selected election ID, and Merkle path for local-only browser proof experiments.
+- `frontend/src/app/lib/browserProof.ts` scaffolds `snarkjs.groth16.fullProve` and Solidity calldata export in the browser.
+- The Dashboard includes a small "Generate proof locally" developer action, but the production vote flow still submits the checked fixture proof.
+- Full browser-side proving is not marked complete yet; the current scaffold uses local/demo-only secret material, relies on the fixture's precomputed demo nullifier, and does not implement production secret management.
 
 ## Gas, Proving, and Constraint Metrics
 

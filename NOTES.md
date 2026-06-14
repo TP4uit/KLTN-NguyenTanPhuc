@@ -16,7 +16,7 @@
 - The MVP has an off-chain Merkle registry helper, circuit-level Merkle membership, and immutable on-chain Merkle root publication. Dynamic insertion is not implemented yet.
 - `npm run deploy:local` and `npm run vote:local` provide a reproducible in-process local deploy/vote path.
 - `npm run deploy:localhost` and `npm run vote:localhost` target a persistent `npx hardhat node` RPC for MetaMask and the Vite frontend.
-- The frontend can submit the exported fixture proof and read local on-chain vote counts. Browser-side SnarkJS proof generation is not implemented yet.
+- The frontend can submit the exported fixture proof and read local on-chain vote counts. Browser-side SnarkJS proof generation now has a local/demo scaffold, but fixture submission remains the stable demo path.
 - Vote gas for a valid fixture vote has been collected once. Verifier deployment gas and duplicate-nullifier failure gas are still pending.
 - Groth16 proof generation is randomized, so regenerating `proof.json` and `calldata.json` can change proof bytes while preserving the same public signals.
 
@@ -51,7 +51,7 @@ Commands run during the foundation pass:
 ## Remaining Blockers
 
 - Dynamic on-chain Merkle insertion is still planned work.
-- Browser-side proof generation is still pending; the frontend currently submits `frontend/src/contracts/vote.calldata.local.json`.
+- Production browser-side proof generation is still pending. The Dashboard includes a local developer action that generates a proof from demo-only registry material, while the vote flow still submits `frontend/src/contracts/vote.calldata.local.json`.
 - Verifier deployment gas and duplicate-nullifier failure gas are still pending.
 - Avoid running `hardhat build` and `hardhat test` concurrently in the same working tree; a parallel verification attempt caused a transient Hardhat build-info file move error.
 - In the managed Codex sandbox, Hardhat commands may need approval because Hardhat creates `C:\Users\USER\AppData\Roaming\hardhat-nodejs\Config`. Outside the sandbox, run the same `npm` commands normally.
@@ -188,3 +188,29 @@ Commands run during the foundation pass:
 - `npm run vote:local`: passed after the localhost changes and preserved the in-process deterministic redeploy behavior.
 - `cd frontend && npm run build`: passed. Vite reported a large bundle warning.
 - A temporary Vite dev server started successfully at `http://127.0.0.1:5173/`. The in-app Browser plugin was unavailable in this session, so visual browser inspection was not completed.
+
+## 2026-06-14 Browser Proof Generation Scaffold
+
+- Added `scripts/frontend-sync-fixtures.mjs`.
+- `npm run frontend:sync-fixtures` now exports fixture calldata, copies `circuits/vote_js/vote.wasm` to `frontend/public/zk/vote.wasm`, copies `vote_final.zkey` to `frontend/public/zk/vote_final.zkey`, and writes `frontend/src/contracts/registry.local.json`.
+- `frontend/src/contracts/registry.local.json` includes the selected voter secret, precomputed selected nullifier hash, selected election ID, path elements, path indices, and Merkle root. It is explicitly marked local/demo-only and is not production secret management.
+- Added frontend `snarkjs` plus a local type shim in `frontend/src/types/snarkjs.d.ts`.
+- Added `frontend/src/app/lib/browserProof.ts`, which exposes typed proof input, `buildLocalDemoProofInput`, and `generateVoteProof(input)`.
+- `generateVoteProof` calls `groth16.fullProve`, exports Solidity calldata, and returns `proof`, `publicSignals`, and `{ a, b, c, input }`.
+- Dashboard now includes a small "Generate proof locally" developer action. It does not replace the fixture vote button.
+- The current scaffold is intended to validate browser proving with local demo data. The stable MetaMask voting path still submits `vote.calldata.local.json`.
+- The scaffold intentionally uses the fixture's precomputed local demo nullifier instead of bundling browser Poseidon derivation. Browser-side nullifier derivation remains future production work.
+
+## 2026-06-14 Browser Proof Scaffold Verification
+
+- `npm run frontend:sync-fixtures`: passed and copied `vote.wasm`, `vote_final.zkey`, `vote.calldata.local.json`, and `registry.local.json` into frontend paths.
+- SnarkJS `groth16.fullProve` smoke check passed against `frontend/public/zk/vote.wasm`, `frontend/public/zk/vote_final.zkey`, and `frontend/src/contracts/registry.local.json`.
+  - Public signals: `[nullifierHash, candidateId, electionId, merkleRoot]`.
+  - Candidate ID: `1`.
+  - Election ID: `1`.
+- Final verification commands passed after the scaffold changes:
+  - `npm run build`
+  - `npm test`
+  - `npm run typecheck`
+  - `cd frontend && npm run build`
+- Frontend build still reports Vite's large chunk warning because SnarkJS is bundled for the developer proof action.

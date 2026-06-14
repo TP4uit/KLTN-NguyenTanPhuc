@@ -9,7 +9,7 @@
     "deploy:local": "hardhat run scripts/deploy-local.ts",
     "deploy:localhost": "hardhat --network localhost run scripts/deploy-local.ts",
     "e2e:local": "npm run registry:generate && npm run proof:generate && npm run proof:calldata && npm run deploy:local && npm run vote:local",
-    "frontend:sync-fixtures": "node scripts/proof-calldata.mjs",
+    "frontend:sync-fixtures": "node scripts/proof-calldata.mjs && node scripts/frontend-sync-fixtures.mjs",
     "node:local": "hardhat node",
     "proof:calldata": "node scripts/proof-calldata.mjs",
     "proof:generate": "node scripts/proof-generate.mjs && node scripts/proof-calldata.mjs",

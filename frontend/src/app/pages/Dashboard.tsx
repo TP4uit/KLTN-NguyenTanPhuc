@@ -1,4 +1,4 @@
-import { AlertCircle, CheckCircle2, Loader2, Wallet } from "lucide-react";
+import { AlertCircle, CheckCircle2, FlaskConical, Loader2, Wallet } from "lucide-react";
 import { useEffect, useState } from "react";
 import { ImageWithFallback } from "../components/figma/ImageWithFallback";
 import { ZKPModal } from "../components/ZKPModal";
@@ -12,6 +12,7 @@ import {
   localElection,
   localVoteCalldata,
 } from "../lib/localElection";
+import { buildLocalDemoProofInput, generateVoteProof } from "../lib/browserProof";
 
 const CANDIDATES = [
   {
@@ -49,14 +50,24 @@ const CANDIDATES = [
 ];
 
 type VoteStatus = "disconnected" | "connected" | "generating" | "submitting" | "success" | "error";
+type BrowserProofStatus = "idle" | "generating" | "success" | "error";
 
 export function Dashboard() {
   const [votedFor, setVotedFor] = useState<string | null>(null);
   const [account, setAccount] = useState<string | null>(null);
   const [status, setStatus] = useState<VoteStatus>("disconnected");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [browserProofStatus, setBrowserProofStatus] = useState<BrowserProofStatus>("idle");
+  const [browserProofError, setBrowserProofError] = useState<string | null>(null);
+  const [browserProofSummary, setBrowserProofSummary] = useState<{
+    candidateId: string;
+    electionId: string;
+    merkleRoot: string;
+    publicSignals: string[];
+  } | null>(null);
   const fixtureCandidateId = getFixtureCandidateId();
   const isWorking = status === "generating" || status === "submitting";
+  const isProofGenerating = browserProofStatus === "generating";
 
   useEffect(() => {
     getConnectedLocalElection()
@@ -116,6 +127,28 @@ export function Dashboard() {
     } catch (error) {
       setStatus("error");
       setErrorMessage(error instanceof Error ? error.message : "Vote transaction failed.");
+    }
+  };
+
+  const handleGenerateBrowserProof = async () => {
+    setBrowserProofStatus("generating");
+    setBrowserProofError(null);
+    setBrowserProofSummary(null);
+
+    try {
+      const proofInput = buildLocalDemoProofInput(String(fixtureCandidateId), localElection.electionId);
+      const result = await generateVoteProof(proofInput);
+
+      setBrowserProofSummary({
+        candidateId: result.calldata.input[1],
+        electionId: result.calldata.input[2],
+        merkleRoot: result.calldata.input[3],
+        publicSignals: result.publicSignals,
+      });
+      setBrowserProofStatus("success");
+    } catch (error) {
+      setBrowserProofStatus("error");
+      setBrowserProofError(error instanceof Error ? error.message : "Browser proof generation failed.");
     }
   };
 
@@ -231,6 +264,56 @@ export function Dashboard() {
             );
           })}
         </div>
+
+        <section className="mt-10 rounded-2xl border border-slate-200 bg-white p-5 sm:p-6 shadow-sm">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+            <div className="max-w-3xl">
+              <div className="flex items-center gap-2 mb-2">
+                <FlaskConical className="h-5 w-5 text-blue-600" />
+                <h2 className="text-lg font-bold text-slate-900">Browser Proof Dev Check</h2>
+              </div>
+              <p className="text-sm text-slate-600 leading-relaxed">
+                Generate a fresh Groth16 proof in the browser with the local demo registry fixture. The stable vote button above still submits the checked fixture calldata.
+              </p>
+            </div>
+
+            <button
+              onClick={handleGenerateBrowserProof}
+              disabled={isProofGenerating}
+              className="inline-flex items-center justify-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-4 py-2.5 text-sm font-semibold text-blue-700 transition hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {isProofGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <FlaskConical className="h-4 w-4" />}
+              Generate proof locally
+            </button>
+          </div>
+
+          <div
+            className={`mt-4 rounded-xl border px-4 py-3 text-sm ${
+              browserProofStatus === "error"
+                ? "border-red-200 bg-red-50 text-red-700"
+                : browserProofStatus === "success"
+                  ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                  : "border-slate-200 bg-slate-50 text-slate-600"
+            }`}
+          >
+            {browserProofStatus === "idle" && "Idle. This dev action uses the local demo secret and Merkle path only."}
+            {browserProofStatus === "generating" && "Generating proof with /zk/vote.wasm and /zk/vote_final.zkey..."}
+            {browserProofStatus === "error" && (browserProofError ?? "Browser proof generation failed.")}
+            {browserProofStatus === "success" && browserProofSummary && (
+              <div className="space-y-2">
+                <div className="font-semibold">Proof generated locally.</div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                  <span>candidateId: {BigInt(browserProofSummary.candidateId).toString()}</span>
+                  <span>electionId: {BigInt(browserProofSummary.electionId).toString()}</span>
+                  <span>merkleRoot: {`${browserProofSummary.merkleRoot.slice(0, 10)}...${browserProofSummary.merkleRoot.slice(-8)}`}</span>
+                </div>
+                <div className="text-xs text-emerald-700">
+                  Public input order: nullifierHash, candidateId, electionId, merkleRoot
+                </div>
+              </div>
+            )}
+          </div>
+        </section>
       </main>
 
       {/* Loading Modal Overlay */}
