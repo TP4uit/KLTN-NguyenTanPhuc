@@ -15,6 +15,40 @@ Use this file to record reproducible measurements and decisions for the KLTN vot
 
 ## Planned Experiments
 
+### 2026-06-14 - Local Deployment and Vote Submission
+
+- Goal: Verify the local end-to-end deployment and vote submission workflow against the current Merkle membership circuit and Solidity verifier.
+- Inputs:
+  - `electionId`: `1`
+  - `merkleRoot`: `7932749078796165988725230467181390602760147441196774940239533986225546804780`
+  - `candidateId`: `1`
+  - `nullifierHash`: `9949772996283065961028046280886251458800049835521251014398656492972427599980`
+  - Public input order: `input[0] = nullifierHash`, `input[1] = candidateId`, `input[2] = electionId`, `input[3] = merkleRoot`
+- Commands:
+  - `npm run registry:generate`
+  - `npm run proof:generate`
+  - `npm run proof:calldata`
+  - `npm run build`
+  - `npm test`
+  - `npm run typecheck`
+  - `npm run deploy:local`
+  - `npm run vote:local`
+- Environment:
+  - Windows PowerShell
+  - Hardhat local in-process network, chain ID `31337`
+- Deployment result:
+  - Verifier: `0x5FbDB2315678afecb367f032d93F642f64180aa3`
+  - Election: `0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512`
+  - Metadata: `deployments/local/election.json`
+  - Frontend metadata: `frontend/src/contracts/election.local.json`
+- Vote result:
+  - Transaction hash: `0xcdd5b314ca282007d67a4d41793d0f2703d77fada9317a15da3cd87d45aef082`
+  - Gas used: `298680`
+  - Updated candidate 1 votes: `1`
+- Notes:
+  - `npm run build` and other Hardhat commands may require AppData access in the managed sandbox because Hardhat creates its user config directory.
+  - Hardhat local state is ephemeral between separate `hardhat run` commands, so `vote-local.ts` recreates the deterministic local deployment if needed before submitting the vote.
+
 ### 2026-06-14 - On-Chain Merkle Root Enforcement
 
 - Goal: Store the off-chain registry root immutably in `Election.sol` and reject proofs whose public `merkleRoot` does not match the election root.
@@ -207,15 +241,15 @@ Use this file to record reproducible measurements and decisions for the KLTN vot
 
 - Goal: Measure gas for deploying `Groth16Verifier` and `Election`.
 - Commands:
-  - `npx hardhat ignition deploy ignition/modules/Election.ts --network hardhatMainnet`
-- Result: Pending.
+  - `npm run deploy:local`
+- Result: Pending deployment gas-specific measurement. Local addresses and metadata are now recorded in the local deployment experiment.
 
 ### Vote Transaction Gas
 
 - Goal: Measure `castVote` gas for a valid proof and duplicate nullifier rejection.
 - Commands:
-  - Pending gas-specific test or report.
-- Result: Pending gas measurement.
+  - `npm run vote:local`
+- Result: Valid fixture vote used `298680` gas. Duplicate nullifier rejection gas remains pending.
 
 ### Proving Time
 

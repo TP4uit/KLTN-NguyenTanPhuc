@@ -6,13 +6,16 @@
   "scripts": {
     "build": "hardhat build",
     "compile": "hardhat build",
+    "deploy:local": "hardhat run scripts/deploy-local.ts",
+    "e2e:local": "npm run registry:generate && npm run proof:generate && npm run proof:calldata && npm run deploy:local && npm run vote:local",
     "proof:calldata": "node scripts/proof-calldata.mjs",
     "proof:generate": "node scripts/proof-generate.mjs && node scripts/proof-calldata.mjs",
     "registry:generate": "node scripts/registry-generate.mjs",
     "test": "hardhat test",
     "test:mocha": "hardhat test mocha",
     "test:solidity": "hardhat test solidity",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "vote:local": "hardhat run scripts/vote-local.ts"
   },
   "repository": {
     "type": "git",

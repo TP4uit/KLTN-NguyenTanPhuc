@@ -2,7 +2,7 @@
 
 ## Objective
 
-Build the foundation for an anonymous, verifiable voting MVP using Circom/Groth16 proofs, a Solidity verifier, and a Hardhat test/deployment workflow.
+Build the foundation for an anonymous, verifiable voting MVP using Circom/Groth16 proofs, a Solidity verifier, and a Hardhat test/deployment workflow. The current near-term target is a reproducible local flow from registry fixture to proof calldata, deployment, vote submission, and tally observation.
 
 ## Repository Structure
 
@@ -37,9 +37,9 @@ Build the foundation for an anonymous, verifiable voting MVP using Circom/Groth1
    - Add duplicate nullifier and invalid proof tests.
 
 5. Prove and submit votes end to end
-   - Add scripts for witness generation, proof creation, calldata export, and vote submission.
+   - Maintain scripts for witness generation, proof creation, calldata export, local deployment, and vote submission.
    - Add fixture proofs for deterministic tests.
-   - Connect frontend to local deployment data.
+   - Export local deployment metadata for frontend integration.
 
 6. Measure and document
    - Record constraints, proving time, verifier gas, and vote gas.
@@ -47,8 +47,11 @@ Build the foundation for an anonymous, verifiable voting MVP using Circom/Groth1
 
 ## Near-Term Backlog
 
-- [ ] Fix or confirm the Hardhat 3 test pattern in `test/Election.test.ts`.
-- [ ] Add a minimal valid proof fixture for the current circuit.
-- [ ] Decide whether the identity registry is contract-managed or generated off-chain with root publication.
-- [ ] Add `.gitignore` coverage for generated proving artifacts if they should not be versioned.
-- [ ] Document exact Circom and snarkjs versions used for reproducibility.
+- [x] Confirm the Hardhat 3 test pattern in `test/Election.test.ts`.
+- [x] Add a valid proof fixture for the current Merkle membership circuit.
+- [x] Use an off-chain registry fixture with immutable on-chain root publication for the MVP.
+- [x] Add local deployment and vote submission scripts.
+- [x] Export local contract metadata for future frontend wiring.
+- [ ] Add frontend vote submission and results UI wiring.
+- [ ] Record duplicate-nullifier failure gas and hardware context for proving measurements.
+- [ ] Document exact Circom binary provenance for reproducibility.

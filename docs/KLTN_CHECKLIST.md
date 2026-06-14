@@ -77,7 +77,7 @@ Current foundation:
 ## End-to-End Vote Flow
 
 - [ ] Define off-chain flow: register voter, build witness, prove, submit vote.
-- [ ] Add script for local proof generation and vote submission.
+- [x] Add script for local proof generation and vote submission.
 - [ ] Add frontend wiring for proof generation or proof submission.
 - [x] Add an end-to-end test covering deployment, proof, vote, and tally.
 
@@ -85,7 +85,9 @@ Current foundation:
 
 - `frontend/` exists as a Vite application foundation.
 - `scripts/proof-generate.mjs` and `scripts/proof-calldata.mjs` generate a local proof and verifier calldata for contract tests.
-- A standalone vote-submission script remains pending.
+- `scripts/deploy-local.ts` writes local deployment metadata to `deployments/local/election.json`.
+- `scripts/vote-local.ts` validates deployment/proof calldata consistency and submits a local fixture vote.
+- `frontend/src/contracts/election.local.json` exports local contract metadata and ABI for future UI wiring.
 
 ## Gas, Proving, and Constraint Metrics
 
@@ -93,9 +95,10 @@ Current foundation:
 - [ ] Record proving time and hardware context.
 - [ ] Record verifier deployment gas.
 - [ ] Record `castVote` gas for valid votes and failed duplicate attempts.
-- [ ] Keep experiment results in `EXPERIMENTS.md`.
+- [x] Keep experiment results in `EXPERIMENTS.md`.
 
 Current foundation:
 
 - `circuits/vote.r1cs`, `vote.sym`, `vote_final.zkey`, and `verification_key.json` exist.
 - Current circuit metrics are documented in `EXPERIMENTS.md`.
+- A valid local `castVote` run used `298680` gas. Duplicate-nullifier failure gas remains pending.

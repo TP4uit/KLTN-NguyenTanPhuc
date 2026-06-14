@@ -14,7 +14,8 @@
 ## Known Gaps
 
 - The MVP has an off-chain Merkle registry helper, circuit-level Merkle membership, and immutable on-chain Merkle root publication. Dynamic insertion is not implemented yet.
-- Deployment gas and vote gas are not collected yet.
+- `npm run deploy:local` and `npm run vote:local` now provide a reproducible local deploy/vote path. The frontend consumes exported metadata only; UI wiring is not implemented yet.
+- Vote gas for a valid fixture vote has been collected once. Verifier deployment gas and duplicate-nullifier failure gas are still pending.
 - Groth16 proof generation is randomized, so regenerating `proof.json` and `calldata.json` can change proof bytes while preserving the same public signals.
 
 ## Verification Log
@@ -48,8 +49,10 @@ Commands run during the foundation pass:
 ## Remaining Blockers
 
 - Dynamic on-chain Merkle insertion is still planned work.
-- Gas metrics are still pending.
+- Frontend vote submission and result display wiring are still pending.
+- Verifier deployment gas and duplicate-nullifier failure gas are still pending.
 - Avoid running `hardhat build` and `hardhat test` concurrently in the same working tree; a parallel verification attempt caused a transient Hardhat build-info file move error.
+- In the managed Codex sandbox, Hardhat commands may need approval because Hardhat creates `C:\Users\USER\AppData\Roaming\hardhat-nodejs\Config`. Outside the sandbox, run the same `npm` commands normally.
 
 ## 2026-06-14 Vertical Slice Notes
 
@@ -124,3 +127,32 @@ Commands run during the foundation pass:
 - `npm run build`: passed.
 - `npm test`: passed with 15 Mocha tests.
 - `npm run typecheck`: passed.
+
+## 2026-06-14 Local Deployment and Vote Submission
+
+- Added `scripts/deploy-local.ts`.
+- `npm run deploy:local` deploys `Groth16Verifier` and `Election(verifier, electionId = 1, merkleRoot)` to the local Hardhat network.
+- Deployment metadata is written to `deployments/local/election.json`.
+- Frontend-facing metadata plus the `Election` ABI is written to `frontend/src/contracts/election.local.json`.
+- Added `scripts/vote-local.ts`.
+- `npm run vote:local` reads `deployments/local/election.json` and `test/fixtures/vote/calldata.json`, checks election ID/root consistency, verifies on-chain election configuration, calls `Election.castVote(a, b, c, input)`, and prints the transaction hash, gas, candidate ID, nullifier hash, and updated tally.
+- The vote script fails clearly for missing deployment JSON, missing proof JSON, missing calldata JSON, election ID mismatch, and Merkle root mismatch.
+- Because Hardhat's in-process network is ephemeral across separate commands, `vote-local.ts` recreates the deterministic local deployment if the saved address has no code.
+
+## 2026-06-14 Local E2E Verification
+
+- `npm run registry:generate`: passed.
+- `npm run proof:generate`: passed.
+- `npm run proof:calldata`: passed.
+- `npm run build`: passed after granting sandbox access for Hardhat's AppData config directory; output was `No contracts to compile`.
+- `npm test`: passed with 15 Mocha tests.
+- `npm run typecheck`: passed.
+- `npm run deploy:local`: passed.
+  - Verifier: `0x5FbDB2315678afecb367f032d93F642f64180aa3`
+  - Election: `0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512`
+  - Chain ID: `31337`
+- `npm run vote:local`: passed.
+  - Transaction: `0xcdd5b314ca282007d67a4d41793d0f2703d77fada9317a15da3cd87d45aef082`
+  - Gas used: `298680`
+  - Candidate ID: `1`
+  - Updated votes: `1`
