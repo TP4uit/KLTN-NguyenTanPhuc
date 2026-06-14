@@ -25,6 +25,22 @@ function publicSignalToBigInt(value: string): bigint {
   return BigInt(value);
 }
 
+function electionStateNameFor(state: bigint) {
+  if (state === 0n) {
+    return "Registration";
+  }
+
+  if (state === 1n) {
+    return "Open";
+  }
+
+  if (state === 2n) {
+    return "Closed";
+  }
+
+  return `Unknown(${state})`;
+}
+
 const deployment = readRequiredJson(deploymentPath, "local deployment JSON");
 readRequiredJson(proofPath, "proof fixture JSON");
 const calldata = readRequiredJson(calldataPath, "proof calldata fixture");
@@ -85,6 +101,11 @@ async function recreateEphemeralDeploymentIfNeeded() {
   await election.waitForDeployment();
   const electionAddress = await election.getAddress();
 
+  if (deployment.autoOpened === true) {
+    const openTx = await election.openElection();
+    await openTx.wait();
+  }
+
   if (verifierAddress.toLowerCase() !== deployment.verifier.address.toLowerCase()) {
     throw new Error(
       `Recreated verifier address ${verifierAddress} does not match deployment JSON ${deployment.verifier.address}`,
@@ -103,6 +124,7 @@ await recreateEphemeralDeploymentIfNeeded();
 const election = await ethers.getContractAt("Election", deployment.election.address);
 const onChainElectionId = await election.electionId();
 const onChainMerkleRoot = await election.merkleRoot();
+const onChainElectionState = await election.electionState();
 
 if (onChainElectionId !== deploymentElectionId) {
   throw new Error(
@@ -113,6 +135,12 @@ if (onChainElectionId !== deploymentElectionId) {
 if (onChainMerkleRoot !== deploymentMerkleRoot) {
   throw new Error(
     `On-chain merkleRoot ${onChainMerkleRoot} does not match deployment JSON ${deploymentMerkleRoot}`,
+  );
+}
+
+if (onChainElectionState !== 1n) {
+  throw new Error(
+    `Election is ${electionStateNameFor(onChainElectionState)} (${onChainElectionState}); run \`npm run deploy:local\` with auto-open enabled or call openElection() before voting.`,
   );
 }
 
@@ -130,4 +158,5 @@ console.log(`  txHash: ${receipt?.hash ?? tx.hash}`);
 console.log(`  gasUsed: ${receipt?.gasUsed?.toString() ?? "unknown"}`);
 console.log(`  candidateId: ${calldataCandidateId}`);
 console.log(`  nullifierHash: ${calldataNullifierHash}`);
+console.log(`  electionState: ${electionStateNameFor(onChainElectionState)} (${onChainElectionState})`);
 console.log(`  updatedVotes: ${votes}`);

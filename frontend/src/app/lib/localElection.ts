@@ -11,10 +11,20 @@ type ElectionMetadata = {
   chainId: string;
   electionId: string;
   merkleRoot: string;
+  electionState: number;
+  electionStateName: ElectionStateName;
+  autoOpened: boolean;
   election: {
     address: string;
   };
   abi: unknown[];
+};
+
+export type ElectionStateName = "Registration" | "Open" | "Closed" | `Unknown(${string})`;
+
+export type ElectionLifecycle = {
+  electionState: number;
+  electionStateName: ElectionStateName;
 };
 
 export type VoteCalldata = {
@@ -39,6 +49,33 @@ export const localVoteCalldata = voteCalldata as VoteCalldata;
 
 export function getFixtureCandidateId() {
   return Number(BigInt(localVoteCalldata.candidateId));
+}
+
+export function getElectionStateName(state: number | bigint): ElectionStateName {
+  const normalized = BigInt(state);
+
+  if (normalized === 0n) {
+    return "Registration";
+  }
+
+  if (normalized === 1n) {
+    return "Open";
+  }
+
+  if (normalized === 2n) {
+    return "Closed";
+  }
+
+  return `Unknown(${normalized.toString()})`;
+}
+
+export function getMetadataElectionLifecycle(): ElectionLifecycle {
+  const electionState = Number(localElection.electionState);
+
+  return {
+    electionState,
+    electionStateName: getElectionStateName(electionState),
+  };
 }
 
 export function formatAccount(account: string) {
@@ -113,6 +150,16 @@ export async function connectLocalElection() {
     contract,
     provider,
     signer,
+  };
+}
+
+export async function readLiveElectionLifecycle(contract: Contract): Promise<ElectionLifecycle> {
+  const rawState = await contract.electionState();
+  const electionState = Number(rawState);
+
+  return {
+    electionState,
+    electionStateName: getElectionStateName(rawState),
   };
 }
 

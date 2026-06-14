@@ -6,11 +6,14 @@ import { AnimatePresence } from "motion/react";
 import { DashboardHeader } from "../components/DashboardHeader";
 import {
   connectLocalElection,
+  getMetadataElectionLifecycle,
   formatAccount,
   getConnectedLocalElection,
   getFixtureCandidateId,
   localElection,
   localVoteCalldata,
+  readLiveElectionLifecycle,
+  type ElectionLifecycle,
 } from "../lib/localElection";
 import { buildLocalDemoProofInput, generateVoteProof } from "../lib/browserProof";
 
@@ -68,24 +71,49 @@ export function Dashboard() {
   } | null>(null);
   const [lastProofMs, setLastProofMs] = useState<number | null>(null);
   const [lastTxHash, setLastTxHash] = useState<string | null>(null);
+  const [electionLifecycle, setElectionLifecycle] = useState<ElectionLifecycle>(
+    getMetadataElectionLifecycle(),
+  );
+  const [isLiveLifecycle, setIsLiveLifecycle] = useState(false);
   const fixtureCandidateId = getFixtureCandidateId();
   const isWorking = status === "generating" || status === "submitting";
   const isProofGenerating = browserProofStatus === "generating";
 
   useEffect(() => {
     getConnectedLocalElection()
-      .then((connection) => {
+      .then(async (connection) => {
         if (!connection) {
           return;
         }
 
         setAccount(connection.account);
+        const lifecycle = await readLiveElectionLifecycle(connection.contract);
+        setElectionLifecycle(lifecycle);
+        setIsLiveLifecycle(true);
         setStatus("connected");
       })
       .catch(() => {
+        setIsLiveLifecycle(false);
         setStatus("disconnected");
       });
   }, []);
+
+  const refreshLifecycle = async (contract: Awaited<ReturnType<typeof connectLocalElection>>["contract"]) => {
+    const lifecycle = await readLiveElectionLifecycle(contract);
+    setElectionLifecycle(lifecycle);
+    setIsLiveLifecycle(true);
+    return lifecycle;
+  };
+
+  const ensureElectionOpen = async (contract: Awaited<ReturnType<typeof connectLocalElection>>["contract"]) => {
+    const lifecycle = await refreshLifecycle(contract);
+
+    if (lifecycle.electionState !== 1) {
+      throw new Error(
+        `Election is ${lifecycle.electionStateName}. Voting is only available while the election is Open.`,
+      );
+    }
+  };
 
   const handleConnect = async () => {
     setErrorMessage(null);
@@ -93,6 +121,7 @@ export function Dashboard() {
     try {
       const connection = await connectLocalElection();
       setAccount(connection.account);
+      await refreshLifecycle(connection.contract);
       setStatus("connected");
     } catch (error) {
       setStatus("error");
@@ -109,6 +138,7 @@ export function Dashboard() {
       setStatus("generating");
       const connection = await connectLocalElection();
       setAccount(connection.account);
+      await ensureElectionOpen(connection.contract);
       const proofInput = buildLocalDemoProofInput(String(candidateId), localElection.electionId);
       const result = await generateVoteProof(proofInput);
       setLastProofMs(result.timingMs);
@@ -148,6 +178,7 @@ export function Dashboard() {
       setStatus("submitting");
       const connection = await connectLocalElection();
       setAccount(connection.account);
+      await ensureElectionOpen(connection.contract);
       const tx = await connection.contract.castVote(
         localVoteCalldata.a,
         localVoteCalldata.b,
@@ -203,6 +234,10 @@ export function Dashboard() {
             <p className="text-sm text-slate-500 mt-3">
               Browser-generated proof voting uses the local demo voter on chain {localElection.chainId}.
             </p>
+            <p className="text-sm text-slate-500 mt-1">
+              Election state: <span className="font-semibold text-slate-700">{electionLifecycle.electionStateName}</span>
+              {isLiveLifecycle ? " (live)" : localElection.autoOpened ? " (metadata, auto-open deploy)" : " (metadata)"}
+            </p>
           </div>
 
           <div className="flex flex-col sm:items-end gap-3">
@@ -239,6 +274,19 @@ export function Dashboard() {
                 {status === "submitting" && "Submitting castVote(a, b, c, input) in MetaMask."}
                 {status === "success" && `Vote recorded${lastProofMs === null ? "" : ` after ${lastProofMs}ms proof generation`}${lastTxHash ? `: ${lastTxHash.slice(0, 10)}...${lastTxHash.slice(-8)}` : "."}`}
                 {status === "error" && (errorMessage ?? "Something went wrong.")}
+              </span>
+            </div>
+            <div className="inline-flex max-w-md items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600">
+              <span className={`h-2 w-2 rounded-full ${
+                electionLifecycle.electionState === 1
+                  ? "bg-emerald-500"
+                  : electionLifecycle.electionState === 2
+                    ? "bg-slate-400"
+                    : "bg-amber-500"
+              }`} />
+              <span>
+                Lifecycle: <span className="font-semibold text-slate-800">{electionLifecycle.electionStateName}</span>
+                {isLiveLifecycle ? " from contract" : " from metadata"}
               </span>
             </div>
           </div>

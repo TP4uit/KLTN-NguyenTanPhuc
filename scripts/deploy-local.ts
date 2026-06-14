@@ -30,6 +30,7 @@ const registry = readJson(registryPath, "registry fixture");
 const electionArtifact = readJson(electionArtifactPath, "Election artifact");
 const electionId = BigInt(process.env.LOCAL_ELECTION_ID ?? "1");
 const merkleRoot = BigInt(registry.merkleRoot);
+const autoOpenElection = process.env.LOCAL_ELECTION_AUTO_OPEN !== "false";
 const connection = await network.create();
 const { ethers } = connection;
 const [deployer] = await ethers.getSigners();
@@ -47,6 +48,30 @@ const election = await ethers.deployContract("Election", [
 await election.waitForDeployment();
 
 const electionAddress = await election.getAddress();
+
+if (autoOpenElection) {
+  const openTx = await election.openElection();
+  await openTx.wait();
+}
+
+function electionStateNameFor(state: bigint) {
+  if (state === 0n) {
+    return "Registration";
+  }
+
+  if (state === 1n) {
+    return "Open";
+  }
+
+  if (state === 2n) {
+    return "Closed";
+  }
+
+  return `Unknown(${state})`;
+}
+
+const electionState = await election.electionState();
+const electionStateName = electionStateNameFor(electionState);
 const now = new Date().toISOString();
 const publicInputOrder = [
   "nullifierHash",
@@ -70,6 +95,9 @@ const metadata = {
   },
   electionId: electionId.toString(),
   merkleRoot: merkleRoot.toString(),
+  electionState: Number(electionState),
+  electionStateName,
+  autoOpened: autoOpenElection,
   candidateBounds: {
     min: 1,
     max: 4,
@@ -100,5 +128,7 @@ console.log(`  verifier: ${verifierAddress}`);
 console.log(`  election: ${electionAddress}`);
 console.log(`  electionId: ${metadata.electionId}`);
 console.log(`  merkleRoot: ${metadata.merkleRoot}`);
+console.log(`  lifecycle: ${metadata.electionStateName} (${metadata.electionState})`);
+console.log(`  autoOpened: ${metadata.autoOpened}`);
 console.log(`  deployment: ${deploymentPath}`);
 console.log(`  frontend metadata: ${frontendMetadataPath}`);

@@ -4,7 +4,15 @@ import { motion } from 'motion/react';
 import { useEffect, useState } from 'react';
 import { ImageWithFallback } from '../components/figma/ImageWithFallback';
 import { DashboardHeader } from '../components/DashboardHeader';
-import { connectLocalElection, formatAccount, getConnectedLocalElection, localElection } from '../lib/localElection';
+import {
+  connectLocalElection,
+  formatAccount,
+  getConnectedLocalElection,
+  getMetadataElectionLifecycle,
+  localElection,
+  readLiveElectionLifecycle,
+  type ElectionLifecycle,
+} from '../lib/localElection';
 
 const mockResults = [
   { id: "c3", candidateId: 3, name: "David Okafor", title: "Community Lead", votes: 2150, color: "#3b82f6", image: "https://images.unsplash.com/photo-1560073743-0a45c01b68c4?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxzbWlsaW5nJTIwcHJvZmVzc2lvbmFsJTIwbWFufGVufDF8fHx8MTc3NjA0MzY3NHww&ixlib=rb-4.1.0&q=80&w=1080" },
@@ -20,6 +28,10 @@ export function Results() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isOnChain, setIsOnChain] = useState(false);
   const [statusMessage, setStatusMessage] = useState("Connect MetaMask to load localhost vote counts.");
+  const [electionLifecycle, setElectionLifecycle] = useState<ElectionLifecycle>(
+    getMetadataElectionLifecycle(),
+  );
+  const [isLiveLifecycle, setIsLiveLifecycle] = useState(false);
   const displayResults = isOnChain ? [...results].sort((a, b) => b.votes - a.votes) : results;
   const totalVotes = displayResults.reduce((sum, c) => sum + c.votes, 0);
 
@@ -35,10 +47,13 @@ export function Results() {
       }
 
       const counts = await Promise.all([1, 2, 3, 4].map((candidateId) => connection.contract.getVotes(candidateId)));
+      const lifecycle = await readLiveElectionLifecycle(connection.contract);
       const blockNumber = await connection.provider.getBlockNumber();
 
       setAccount(connection.account);
       setLatestBlock(blockNumber);
+      setElectionLifecycle(lifecycle);
+      setIsLiveLifecycle(true);
       setResults((current) =>
         current.map((candidate) => ({
           ...candidate,
@@ -101,6 +116,12 @@ export function Results() {
               Real-time cryptographic tallying for the current governance proposals.
             </p>
             <p className="text-sm text-slate-500 mt-2">{statusMessage}</p>
+            {account && (
+              <p className="text-sm text-slate-500 mt-1">
+                Election state: <span className="font-semibold text-slate-700">{electionLifecycle.electionStateName}</span>
+                {isLiveLifecycle ? " (live)" : " (metadata)"}
+              </p>
+            )}
           </div>
           <button
             onClick={() => loadResults(true)}

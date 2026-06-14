@@ -6,7 +6,7 @@
 - `contracts/Election.sol` currently supports verifier-based vote submission, public nullifier tracking, and candidate vote counts.
 - `circuits/vote.circom` currently proves that a private secret and public election ID hash to a public nullifier, and verifies membership in a fixed depth-3 Merkle registry.
 - `circuits/vote.circom` constrains MVP candidate IDs to 1, 2, 3, or 4.
-- `contracts/Election.sol` stores an immutable `electionId`, enforces public input order, and rejects candidates outside 1..4 before verifier execution.
+- `contracts/Election.sol` stores an immutable `electionId`, manages `Registration -> Open -> Closed`, finalizes the Merkle root before voting, enforces public input order, and rejects candidates outside 1..4 before verifier execution.
 - `npm run proof:generate` now creates a sample witness, Groth16 proof, public signals, and Solidity calldata for the current simplified circuit.
 - `test/Election.test.ts` now uses the generated calldata fixture to test a real `castVote` path.
 - `npm run evidence:all` now regenerates registry/proof/calldata audits, proof benchmarks, gas benchmarks, and `docs/BENCHMARK_REPORT.md`.
@@ -14,10 +14,10 @@
 
 ## Known Gaps
 
-- The MVP has an off-chain Merkle registry helper, circuit-level Merkle membership, and immutable on-chain Merkle root publication. Dynamic insertion is not implemented yet.
+- The MVP has an off-chain Merkle registry helper, circuit-level Merkle membership, and on-chain Merkle root finalization through the election lifecycle. Dynamic insertion is not implemented yet.
 - `npm run deploy:local` and `npm run vote:local` provide a reproducible in-process local deploy/vote path.
 - `npm run deploy:localhost` and `npm run vote:localhost` target a persistent `npx hardhat node` RPC for MetaMask and the Vite frontend.
-- The frontend can generate a browser-side SnarkJS proof for the selected candidate, submit the generated calldata through MetaMask, keep the checked fixture submission as a candidate-1 fallback, and read local on-chain vote counts.
+- The frontend can show the live election lifecycle state, generate a browser-side SnarkJS proof for the selected candidate, submit the generated calldata through MetaMask while the election is Open, keep the checked fixture submission as a candidate-1 fallback, and read local on-chain vote counts.
 - The evidence pack records local proof timing, circuit metrics, artifact sizes, verifier and election deployment gas, valid vote gas, and revert behavior for duplicate nullifier, invalid candidate, invalid Merkle root, and invalid proof paths.
 - Failed-path revert reasons are recorded. Failed-path gas receipts are not exposed by the current local ethers/Hardhat error objects.
 - Groth16 proof generation is randomized, so regenerating `proof.json` and `calldata.json` can change proof bytes while preserving the same public signals.
@@ -263,3 +263,15 @@ Commands run during the foundation pass:
   - Invalid Merkle root: reverted with `Invalid Merkle root`
   - Invalid proof: reverted with `Loi: ZK Proof khong hop le`
 - Reverted transaction gas receipts are not available from the current local ethers/Hardhat error objects, so the evidence records rejection behavior and readable reasons for those paths.
+
+## 2026-06-14 Deployment and Frontend Lifecycle Wiring
+
+- `scripts/deploy-local.ts` now deploys `Groth16Verifier`, deploys `Election(verifier, electionId, merkleRoot)`, and opens the election by default for local demo compatibility.
+- Set `LOCAL_ELECTION_AUTO_OPEN=false` to leave a local deployment in Registration.
+- Deployment metadata in `deployments/local/election.json` and `frontend/src/contracts/election.local.json` now includes `electionState`, `electionStateName`, and `autoOpened`.
+- `scripts/vote-local.ts` reads live `electionState()` before submitting and fails clearly unless the contract is Open.
+- The in-process `vote:local` redeploy fallback still works and calls `openElection()` when metadata has `autoOpened: true`.
+- `frontend/src/app/lib/localElection.ts` maps lifecycle state `0/1/2` to `Registration/Open/Closed` and exposes a live `electionState()` reader.
+- Dashboard displays lifecycle state, refreshes it on MetaMask connect, and blocks both browser-generated and fixture fallback vote submission unless the live state is Open.
+- Results displays the live lifecycle state after connecting while keeping `Election.getVotes(1..4)` tally loading.
+- Dynamic on-chain registry insertion remains pending and out of scope for this lifecycle wiring pass.

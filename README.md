@@ -6,7 +6,7 @@ The project is still intentionally scoped as an MVP foundation. Dynamic voter re
 
 ## Architecture
 
-- `contracts/Election.sol`: election contract that stores an immutable `electionId` and `merkleRoot`, calls the Groth16 verifier, rejects reused nullifiers, enforces candidate IDs 1..4, and tracks vote counts.
+- `contracts/Election.sol`: election contract that stores an immutable `electionId`, manages `Registration -> Open -> Closed`, finalizes a Merkle root before voting, calls the Groth16 verifier, rejects reused nullifiers, enforces candidate IDs 1..4, and tracks vote counts.
 - `contracts/Verifier.sol`: generated Groth16 verifier from `snarkjs` for the current voting circuit.
 - `circuits/vote.circom`: Circom circuit that proves `nullifierHash = Poseidon(secretKey, electionId)`, constrains candidate validity, computes `identityCommitment = Poseidon(secretKey)`, and verifies a depth-3 Merkle path against the public root.
 - `scripts/merkle-registry.mjs` and `scripts/registry-generate.mjs`: deterministic off-chain registry builder and fixture generator.
@@ -84,17 +84,19 @@ Sync frontend-local proof fixtures and browser proving assets:
 npm run frontend:sync-fixtures
 ```
 
-Deploy the local verifier and election contract:
+Deploy the local verifier and election contract. The local demo opens the election by default:
 
 ```shell
 npm run deploy:local
 ```
 
-Deploy to a persistent Hardhat node for MetaMask:
+Deploy to a persistent Hardhat node for MetaMask. This also opens the election by default:
 
 ```shell
 npm run deploy:localhost
 ```
+
+To leave a local deployment in Registration for lifecycle testing, set `LOCAL_ELECTION_AUTO_OPEN=false` before running the deploy script.
 
 Submit the generated vote fixture to the local election:
 
@@ -178,17 +180,19 @@ Import one of the funded Hardhat test accounts from the `npx hardhat node` outpu
 
 The Dashboard primary Vote buttons generate a fresh Groth16 proof in the browser for the selected candidate, then submit the generated Solidity calldata through MetaMask. A separate fixture fallback button still submits `frontend/src/contracts/vote.calldata.local.json` for candidate `1`. The browser-generated path uses `/zk/vote.wasm`, `/zk/vote_final.zkey`, and the local demo registry fixture. It still uses demo-only voter secret material and a precomputed local demo nullifier, so it is an MVP/demo flow rather than production identity or secret management.
 
+`npm run deploy:localhost` auto-opens the election so browser voting works immediately. Set `LOCAL_ELECTION_AUTO_OPEN=false` to deploy and export metadata while staying in Registration. The Dashboard and Results pages display the live lifecycle state after MetaMask connects, and Dashboard refuses to submit votes unless the contract state is Open.
+
 ## Local Metadata
 
 `npm run deploy:local` writes:
 
-- `deployments/local/election.json`: network name, chain ID, deployer, verifier address, election address, election ID, Merkle root, candidate bounds, timestamp, and public input order.
+- `deployments/local/election.json`: network name, chain ID, deployer, verifier address, election address, election ID, Merkle root, election lifecycle state, auto-open flag, candidate bounds, timestamp, and public input order.
 - `frontend/src/contracts/election.local.json`: the same metadata plus the `Election` ABI for frontend integration.
 - `frontend/src/contracts/vote.calldata.local.json`: the fixture proof calldata exported by `npm run proof:calldata` or `npm run frontend:sync-fixtures`.
 - `frontend/src/contracts/registry.local.json`: selected local demo voter secret, precomputed demo nullifier, Merkle path, path indices, and Merkle root. This file is demo-only and must not be used for production secret management.
 - `frontend/public/zk/vote.wasm` and `frontend/public/zk/vote_final.zkey`: copied proving assets for the browser proof-generation scaffold.
 
-Hardhat's in-process network is ephemeral between script runs. `scripts/vote-local.ts` validates the saved deployment metadata and recreates the same deterministic local contracts when needed before submitting the fixture vote. For MetaMask, keep `npx hardhat node` running and use `deploy:localhost` plus `vote:localhost`.
+Hardhat's in-process network is ephemeral between script runs. `scripts/vote-local.ts` validates the saved deployment metadata, recreates the same deterministic local contracts when needed, opens the recreated election when metadata says `autoOpened: true`, and refuses to submit unless the live contract state is Open. For MetaMask, keep `npx hardhat node` running and use `deploy:localhost` plus `vote:localhost`.
 
 ## Evidence Reports
 
