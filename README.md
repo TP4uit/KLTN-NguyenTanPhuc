@@ -15,7 +15,7 @@ The project is still intentionally scoped as an MVP foundation. Dynamic voter re
 - `scripts/vote-local.ts`: reads the deployment metadata and calldata fixture, validates root/election ID consistency, submits `Election.castVote`, and prints transaction metrics.
 - `ignition/modules/Election.ts`: Hardhat Ignition module for verifier-first election deployment.
 - `test/Election.test.ts`: TypeScript integration tests for registry helpers, verifier-backed voting, invalid proof paths, replay prevention, and candidate bounds.
-- `frontend/`: Vite frontend foundation. Local contract metadata is exported to `frontend/src/contracts/election.local.json`, the checked proof fixture is exported to `frontend/src/contracts/vote.calldata.local.json`, and demo proving assets are synced under `frontend/public/zk/` for browser-proof scaffolding.
+- `frontend/`: Vite frontend foundation. Local contract metadata is exported to `frontend/src/contracts/election.local.json`, browser-generated demo votes use proving assets under `frontend/public/zk/`, and the checked proof fixture remains available at `frontend/src/contracts/vote.calldata.local.json` as a fallback.
 
 ## Public Inputs
 
@@ -160,7 +160,7 @@ In MetaMask, add or select the localhost network:
 
 Import one of the funded Hardhat test accounts from the `npx hardhat node` output if MetaMask does not already have a funded localhost account.
 
-The stable demo path still submits the checked fixture proof from `frontend/src/contracts/vote.calldata.local.json`, so the default fixture vote is bound to candidate `1`. The Dashboard also has a small developer action that calls SnarkJS in the browser with `/zk/vote.wasm`, `/zk/vote_final.zkey`, and the local demo registry fixture. That scaffold uses a precomputed local demo nullifier for the selected fixture voter, is for proving-path validation only, and does not replace fixture voting yet.
+The Dashboard primary Vote buttons generate a fresh Groth16 proof in the browser for the selected candidate, then submit the generated Solidity calldata through MetaMask. A separate fixture fallback button still submits `frontend/src/contracts/vote.calldata.local.json` for candidate `1`. The browser-generated path uses `/zk/vote.wasm`, `/zk/vote_final.zkey`, and the local demo registry fixture. It still uses demo-only voter secret material and a precomputed local demo nullifier, so it is an MVP/demo flow rather than production identity or secret management.
 
 ## Local Metadata
 
@@ -178,7 +178,7 @@ Hardhat's in-process network is ephemeral between script runs. `scripts/vote-loc
 
 1. Keep the local Merkle registry, proof, deploy, and vote flow reproducible.
 2. Record gas, proving, and constraint metrics for thesis evaluation.
-3. Harden browser-side proof generation beyond the current local/demo scaffold.
+3. Harden browser-side proof generation beyond the current local/demo secret and nullifier fixture.
 4. Decide whether any post-MVP registry update flow is needed, or keep immutable root publication as the thesis scope.
 5. Prepare production ceremony and deployment notes after the MVP flow stabilizes.
 

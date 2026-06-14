@@ -64,7 +64,10 @@ export function Dashboard() {
     electionId: string;
     merkleRoot: string;
     publicSignals: string[];
+    timingMs: number;
   } | null>(null);
+  const [lastProofMs, setLastProofMs] = useState<number | null>(null);
+  const [lastTxHash, setLastTxHash] = useState<string | null>(null);
   const fixtureCandidateId = getFixtureCandidateId();
   const isWorking = status === "generating" || status === "submitting";
   const isProofGenerating = browserProofStatus === "generating";
@@ -99,34 +102,66 @@ export function Dashboard() {
 
   const handleVote = async (id: string, candidateId: number) => {
     setErrorMessage(null);
-
-    if (candidateId !== fixtureCandidateId) {
-      setStatus("error");
-      setErrorMessage(
-        `The local proof fixture is for candidate ${fixtureCandidateId}. Regenerate the fixture to vote for candidate ${candidateId}.`,
-      );
-      return;
-    }
+    setLastProofMs(null);
+    setLastTxHash(null);
 
     try {
       setStatus("generating");
       const connection = await connectLocalElection();
       setAccount(connection.account);
+      const proofInput = buildLocalDemoProofInput(String(candidateId), localElection.electionId);
+      const result = await generateVoteProof(proofInput);
+      setLastProofMs(result.timingMs);
 
       setStatus("submitting");
+      const tx = await connection.contract.castVote(
+        result.calldata.a,
+        result.calldata.b,
+        result.calldata.c,
+        result.calldata.input,
+      );
+      const receipt = await tx.wait();
+
+      setVotedFor(id);
+      setLastTxHash(receipt?.hash ?? tx.hash);
+      setStatus("success");
+    } catch (error) {
+      setStatus("error");
+      setErrorMessage(error instanceof Error ? error.message : "Proof generation or vote transaction failed.");
+    }
+  };
+
+  const handleFixtureVote = async () => {
+    const fixtureCandidate = CANDIDATES.find((candidate) => candidate.candidateId === fixtureCandidateId);
+
+    if (!fixtureCandidate) {
+      setStatus("error");
+      setErrorMessage(`No UI candidate matches fixture candidate ${fixtureCandidateId}.`);
+      return;
+    }
+
+    setErrorMessage(null);
+    setLastProofMs(null);
+    setLastTxHash(null);
+
+    try {
+      setStatus("submitting");
+      const connection = await connectLocalElection();
+      setAccount(connection.account);
       const tx = await connection.contract.castVote(
         localVoteCalldata.a,
         localVoteCalldata.b,
         localVoteCalldata.c,
         localVoteCalldata.input,
       );
-      await tx.wait();
+      const receipt = await tx.wait();
 
-      setVotedFor(id);
+      setVotedFor(fixtureCandidate.id);
+      setLastTxHash(receipt?.hash ?? tx.hash);
       setStatus("success");
     } catch (error) {
       setStatus("error");
-      setErrorMessage(error instanceof Error ? error.message : "Vote transaction failed.");
+      setErrorMessage(error instanceof Error ? error.message : "Fixture vote transaction failed.");
     }
   };
 
@@ -144,6 +179,7 @@ export function Dashboard() {
         electionId: result.calldata.input[2],
         merkleRoot: result.calldata.input[3],
         publicSignals: result.publicSignals,
+        timingMs: result.timingMs,
       });
       setBrowserProofStatus("success");
     } catch (error) {
@@ -165,7 +201,7 @@ export function Dashboard() {
               Select a candidate below to cast your anonymous, verifiable vote for the upcoming governance term.
             </p>
             <p className="text-sm text-slate-500 mt-3">
-              Local fixture proof: candidate {fixtureCandidateId} on chain {localElection.chainId}.
+              Browser-generated proof voting uses the local demo voter on chain {localElection.chainId}.
             </p>
           </div>
 
@@ -198,10 +234,10 @@ export function Dashboard() {
               )}
               <span>
                 {status === "disconnected" && "Disconnected. Connect MetaMask to localhost:31337."}
-                {status === "connected" && "Connected. Ready to submit the checked fixture proof."}
-                {status === "generating" && "Preparing the existing proof fixture for submission."}
+                {status === "connected" && "Connected. Ready to generate a browser proof and submit your vote."}
+                {status === "generating" && "Generating proof in the browser..."}
                 {status === "submitting" && "Submitting castVote(a, b, c, input) in MetaMask."}
-                {status === "success" && "Vote recorded on the local Election contract."}
+                {status === "success" && `Vote recorded${lastProofMs === null ? "" : ` after ${lastProofMs}ms proof generation`}${lastTxHash ? `: ${lastTxHash.slice(0, 10)}...${lastTxHash.slice(-8)}` : "."}`}
                 {status === "error" && (errorMessage ?? "Something went wrong.")}
               </span>
             </div>
@@ -258,7 +294,7 @@ export function Dashboard() {
                   aria-pressed={isVoted}
                   aria-label={`Vote for ${candidate.name}`}
                 >
-                  {isVoted ? 'Vote Recorded' : candidate.candidateId === fixtureCandidateId ? 'Vote' : 'Vote with New Fixture'}
+                  {isVoted ? 'Vote Recorded' : 'Vote'}
                 </button>
               </div>
             );
@@ -273,18 +309,28 @@ export function Dashboard() {
                 <h2 className="text-lg font-bold text-slate-900">Browser Proof Dev Check</h2>
               </div>
               <p className="text-sm text-slate-600 leading-relaxed">
-                Generate a fresh Groth16 proof in the browser with the local demo registry fixture. The stable vote button above still submits the checked fixture calldata.
+                Generate a Groth16 proof with the local demo registry fixture. The main vote buttons now submit generated calldata; the fixture fallback remains available for candidate {fixtureCandidateId}.
               </p>
             </div>
 
-            <button
-              onClick={handleGenerateBrowserProof}
-              disabled={isProofGenerating}
-              className="inline-flex items-center justify-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-4 py-2.5 text-sm font-semibold text-blue-700 transition hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {isProofGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <FlaskConical className="h-4 w-4" />}
-              Generate proof locally
-            </button>
+            <div className="flex flex-col sm:flex-row gap-3">
+              <button
+                onClick={handleGenerateBrowserProof}
+                disabled={isProofGenerating || isWorking}
+                className="inline-flex items-center justify-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-4 py-2.5 text-sm font-semibold text-blue-700 transition hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isProofGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <FlaskConical className="h-4 w-4" />}
+                Generate proof locally
+              </button>
+              <button
+                onClick={handleFixtureVote}
+                disabled={isWorking || votedFor !== null}
+                className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <CheckCircle2 className="h-4 w-4" />
+                Submit fixture fallback
+              </button>
+            </div>
           </div>
 
           <div
@@ -301,7 +347,7 @@ export function Dashboard() {
             {browserProofStatus === "error" && (browserProofError ?? "Browser proof generation failed.")}
             {browserProofStatus === "success" && browserProofSummary && (
               <div className="space-y-2">
-                <div className="font-semibold">Proof generated locally.</div>
+                <div className="font-semibold">Proof generated locally in {browserProofSummary.timingMs}ms.</div>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
                   <span>candidateId: {BigInt(browserProofSummary.candidateId).toString()}</span>
                   <span>electionId: {BigInt(browserProofSummary.electionId).toString()}</span>

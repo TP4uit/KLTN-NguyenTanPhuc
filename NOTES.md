@@ -16,7 +16,7 @@
 - The MVP has an off-chain Merkle registry helper, circuit-level Merkle membership, and immutable on-chain Merkle root publication. Dynamic insertion is not implemented yet.
 - `npm run deploy:local` and `npm run vote:local` provide a reproducible in-process local deploy/vote path.
 - `npm run deploy:localhost` and `npm run vote:localhost` target a persistent `npx hardhat node` RPC for MetaMask and the Vite frontend.
-- The frontend can submit the exported fixture proof and read local on-chain vote counts. Browser-side SnarkJS proof generation now has a local/demo scaffold, but fixture submission remains the stable demo path.
+- The frontend can generate a browser-side SnarkJS proof for the selected candidate, submit the generated calldata through MetaMask, keep the checked fixture submission as a candidate-1 fallback, and read local on-chain vote counts.
 - Vote gas for a valid fixture vote has been collected once. Verifier deployment gas and duplicate-nullifier failure gas are still pending.
 - Groth16 proof generation is randomized, so regenerating `proof.json` and `calldata.json` can change proof bytes while preserving the same public signals.
 
@@ -51,7 +51,7 @@ Commands run during the foundation pass:
 ## Remaining Blockers
 
 - Dynamic on-chain Merkle insertion is still planned work.
-- Production browser-side proof generation is still pending. The Dashboard includes a local developer action that generates a proof from demo-only registry material, while the vote flow still submits `frontend/src/contracts/vote.calldata.local.json`.
+- Production identity and secret management are still pending. The Dashboard browser proof flow uses demo-only registry material and a precomputed local demo nullifier, while `frontend/src/contracts/vote.calldata.local.json` remains a fallback.
 - Verifier deployment gas and duplicate-nullifier failure gas are still pending.
 - Avoid running `hardhat build` and `hardhat test` concurrently in the same working tree; a parallel verification attempt caused a transient Hardhat build-info file move error.
 - In the managed Codex sandbox, Hardhat commands may need approval because Hardhat creates `C:\Users\USER\AppData\Roaming\hardhat-nodejs\Config`. Outside the sandbox, run the same `npm` commands normally.
@@ -214,3 +214,29 @@ Commands run during the foundation pass:
   - `npm run typecheck`
   - `cd frontend && npm run build`
 - Frontend build still reports Vite's large chunk warning because SnarkJS is bundled for the developer proof action.
+
+## 2026-06-14 Browser-Generated Vote Submission
+
+- Dashboard primary candidate buttons now generate a fresh Groth16 proof with `generateVoteProof` for the selected candidate ID and submit the generated `{ a, b, c, input }` calldata to `Election.castVote`.
+- The separate "Submit fixture fallback" button still submits `frontend/src/contracts/vote.calldata.local.json` for fixture candidate `1`.
+- Vote status now distinguishes browser proof generation from transaction submission.
+- Successful browser-generated votes record proof generation time in milliseconds and display the transaction hash.
+- `browserProof.ts` now:
+  - returns `timingMs`;
+  - validates that generated public inputs and Solidity calldata follow `[nullifierHash, candidateId, electionId, merkleRoot]`;
+  - throws a clear mismatch error before Dashboard submits if generated signals do not match the expected selected candidate, election, or Merkle root.
+- Local smoke proof generation passed for candidate IDs `1`, `2`, `3`, and `4`.
+  - Observed proof timings in the Node smoke run: candidate 1 `1044ms`, candidate 2 `476ms`, candidate 3 `533ms`, candidate 4 `511ms`.
+- Persistent localhost smoke submission passed with generated candidate `2` calldata.
+  - Proof generation time: `1254ms`.
+  - Transaction: `0x50395a03c14c731eb8a9739f31d783d4469fb43c64a4a00d6f927a27e194890c`.
+  - Gas used: `298692`.
+  - Updated candidate 2 votes: `1`.
+- Headless Chrome Dashboard click-path smoke passed with an injected EIP-1193 provider backed by the local Hardhat account.
+  - Clicked `Vote for Marcus Chen`.
+  - Dashboard reached success state: `Vote recorded after 792ms proof generation: 0x7bca5119...4d07cfd4`.
+  - Candidate 2 votes increased from `0` to `1`.
+  - Final on-chain counts were `[0, 1, 0, 0]`.
+- Temporary `npm run node:local` and frontend dev servers started successfully during verification and were stopped afterward.
+- The real MetaMask extension UI was not installed in this Codex session; the Chrome smoke verifies the Dashboard browser path against a MetaMask-compatible EIP-1193 provider.
+- This remains MVP/demo only: the local registry secret is stored in `registry.local.json`, and browser-side production secret storage/nullifier derivation are not implemented.

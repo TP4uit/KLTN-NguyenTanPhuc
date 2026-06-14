@@ -15,6 +15,52 @@ Use this file to record reproducible measurements and decisions for the KLTN vot
 
 ## Planned Experiments
 
+### 2026-06-14 - Browser-Generated Proof Vote Submission
+
+- Goal: Move the Dashboard primary vote path from checked fixture calldata to browser-generated Groth16 proof calldata while preserving a candidate-1 fixture fallback.
+- Inputs:
+  - Demo secret source: `frontend/src/contracts/registry.local.json`
+  - Proving assets: `frontend/public/zk/vote.wasm`, `frontend/public/zk/vote_final.zkey`
+  - Election metadata: `frontend/src/contracts/election.local.json`
+  - Fixture fallback calldata: `frontend/src/contracts/vote.calldata.local.json`
+  - Public input order: `input[0] = nullifierHash`, `input[1] = candidateId`, `input[2] = electionId`, `input[3] = merkleRoot`
+- Implementation result:
+  - Dashboard primary Vote buttons call `generateVoteProof` for the selected candidate and submit generated `{ a, b, c, input }` through MetaMask.
+  - A separate fixture fallback button still submits the checked fixture calldata for candidate `1`.
+  - `browserProof.ts` validates generated public signals and calldata against expected nullifier, candidate ID, election ID, and Merkle root before submission.
+  - Dashboard shows proof generation, proof timing, transaction submission, transaction hash, and readable errors.
+- Local proof timing smoke run:
+  - Candidate `1`: `1044ms`
+  - Candidate `2`: `476ms`
+  - Candidate `3`: `533ms`
+  - Candidate `4`: `511ms`
+- Persistent localhost generated vote smoke result:
+  - Candidate `2`
+  - Proof generation: `1254ms`
+  - Transaction hash: `0x50395a03c14c731eb8a9739f31d783d4469fb43c64a4a00d6f927a27e194890c`
+  - Gas used: `298692`
+  - Updated candidate 2 votes: `1`
+- Headless Chrome Dashboard click-path smoke result:
+  - Browser path: `http://127.0.0.1:5173/dashboard`
+  - Provider: injected MetaMask-compatible EIP-1193 provider backed by the local Hardhat account.
+  - Click target: `button[aria-label="Vote for Marcus Chen"]`
+  - Dashboard status: `Vote recorded after 792ms proof generation: 0x7bca5119...4d07cfd4`
+  - Candidate 2 votes increased from `0` to `1`
+  - Final on-chain counts: `[0, 1, 0, 0]`
+- Verification commands:
+  - `npm run build`
+  - `npm test`
+  - `npm run typecheck`
+  - `cd frontend && npm run build`
+- Result:
+  - Build/test/typecheck verification passed.
+  - Frontend build passed with Vite's large chunk warning from bundled SnarkJS.
+  - Generated localhost candidate-2 calldata was accepted by `Election.castVote` and appeared in `getVotes(2)`.
+- Notes:
+  - This is MVP/demo browser proving only. The demo secret and precomputed demo nullifier are local fixtures and unsafe for production.
+  - Browser-side production secret storage and browser-side nullifier derivation remain pending.
+  - The real MetaMask extension UI was not installed in Codex. The Chrome click-path smoke verified the same Dashboard EIP-1193/browser code path with an injected compatible provider.
+
 ### 2026-06-14 - Local Deployment and Vote Submission
 
 - Goal: Verify the local end-to-end deployment and vote submission workflow against the current Merkle membership circuit and Solidity verifier.

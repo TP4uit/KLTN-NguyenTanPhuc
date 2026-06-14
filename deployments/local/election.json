@@ -21,7 +21,7 @@
     "min": 1,
     "max": 4
   },
-  "timestamp": "2026-06-14T00:49:57.125Z",
+  "timestamp": "2026-06-14T02:25:23.926Z",
   "publicInputOrder": [
     "nullifierHash",
     "candidateId",

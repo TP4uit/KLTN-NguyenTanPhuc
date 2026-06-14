@@ -24,6 +24,7 @@ export type BrowserVoteProofResult = {
   proof: unknown;
   publicSignals: string[];
   calldata: SolidityVoteCalldata;
+  timingMs: number;
 };
 
 type RegistryFixture = {
@@ -54,6 +55,10 @@ function getLocalDemoNullifierHash(input: BrowserVoteProofInput) {
   return localRegistryFixture.selectedNullifierHash;
 }
 
+function normalizeField(value: string) {
+  return BigInt(value).toString();
+}
+
 function parseSolidityCalldata(rawCalldata: string): SolidityVoteCalldata {
   const [a, b, c, input] = JSON.parse(`[${rawCalldata}]`) as [
     string[],
@@ -63,6 +68,42 @@ function parseSolidityCalldata(rawCalldata: string): SolidityVoteCalldata {
   ];
 
   return { a, b, c, input };
+}
+
+function validatePublicSignals(
+  calldata: SolidityVoteCalldata,
+  publicSignals: string[],
+  expected: {
+    nullifierHash: string;
+    candidateId: string;
+    electionId: string;
+    merkleRoot: string;
+  },
+) {
+  if (calldata.input.length !== 4 || publicSignals.length !== 4) {
+    throw new Error("Generated proof must have 4 public inputs: nullifierHash, candidateId, electionId, merkleRoot.");
+  }
+
+  const expectedOrder = [
+    expected.nullifierHash,
+    expected.candidateId,
+    expected.electionId,
+    expected.merkleRoot,
+  ];
+
+  expectedOrder.forEach((expectedValue, index) => {
+    const calldataValue = calldata.input[index];
+    const signalValue = publicSignals[index];
+
+    if (
+      normalizeField(calldataValue) !== normalizeField(expectedValue) ||
+      normalizeField(signalValue) !== normalizeField(expectedValue)
+    ) {
+      throw new Error(
+        `Generated public input[${index}] mismatch. Expected ${normalizeField(expectedValue)}, got calldata ${normalizeField(calldataValue)} and signal ${normalizeField(signalValue)}.`,
+      );
+    }
+  });
 }
 
 export function buildLocalDemoProofInput(candidateId: string, electionId: string): BrowserVoteProofInput {
@@ -83,8 +124,10 @@ export async function generateVoteProof(
     zkeyPath?: string;
   } = {},
 ): Promise<BrowserVoteProofResult> {
+  const startedAt = performance.now();
+  const nullifierHash = getLocalDemoNullifierHash(input);
   const witnessInput = {
-    nullifierHash: getLocalDemoNullifierHash(input),
+    nullifierHash,
     ...input,
   };
   const { proof, publicSignals } = await groth16.fullProve(
@@ -93,10 +136,19 @@ export async function generateVoteProof(
     options.zkeyPath ?? DEFAULT_ZKEY_PATH,
   );
   const rawCalldata = await groth16.exportSolidityCallData(proof, publicSignals);
+  const calldata = parseSolidityCalldata(rawCalldata);
+
+  validatePublicSignals(calldata, publicSignals, {
+    nullifierHash,
+    candidateId: input.candidateId,
+    electionId: input.electionId,
+    merkleRoot: input.merkleRoot,
+  });
 
   return {
     proof,
     publicSignals,
-    calldata: parseSolidityCalldata(rawCalldata),
+    calldata,
+    timingMs: Math.round(performance.now() - startedAt),
   };
 }
