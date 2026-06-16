@@ -1,5 +1,6 @@
 import { AlertCircle, CheckCircle2, KeyRound, Loader2, Lock, RefreshCw, Shield, Wallet } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { AdminVoterRegistrationManager } from "../components/AdminVoterRegistrationManager";
 import { DashboardHeader } from "../components/DashboardHeader";
 import {
   connectLocalElection,
@@ -258,6 +259,8 @@ export function Admin() {
             <p className="mt-2 text-xs text-slate-500">Chain ID {localElection.chainId}</p>
           </div>
         </section>
+
+        <AdminVoterRegistrationManager />
 
         <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6 shadow-sm">

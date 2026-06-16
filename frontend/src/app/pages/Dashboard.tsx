@@ -4,6 +4,7 @@ import { ImageWithFallback } from "../components/figma/ImageWithFallback";
 import { ZKPModal } from "../components/ZKPModal";
 import { AnimatePresence } from "motion/react";
 import { DashboardHeader } from "../components/DashboardHeader";
+import { VoterRegistrationPanel } from "../components/VoterRegistrationPanel";
 import {
   connectLocalElection,
   getMetadataElectionLifecycle,
@@ -16,6 +17,7 @@ import {
   type ElectionLifecycle,
 } from "../lib/localElection";
 import { buildLocalDemoProofInput, generateVoteProof } from "../lib/browserProof";
+import { useVoterRegistration } from "../lib/useVoterRegistration";
 
 const CANDIDATES = [
   {
@@ -78,6 +80,45 @@ export function Dashboard() {
   const fixtureCandidateId = getFixtureCandidateId();
   const isWorking = status === "generating" || status === "submitting";
   const isProofGenerating = browserProofStatus === "generating";
+  const voterRegistration = useVoterRegistration(localElection.electionId);
+  const registrationStatus = voterRegistration.status;
+  const isRegistrationApproved = registrationStatus === "APPROVED";
+  const isElectionOpen = electionLifecycle.electionState === 1;
+  const isElectionClosed = electionLifecycle.electionState === 2;
+  const hasVotedAny = votedFor !== null;
+  const canSubmitVote = isRegistrationApproved && isElectionOpen && !isWorking && !hasVotedAny;
+
+  const registrationGateMessage = (() => {
+    if (registrationStatus === "PENDING") {
+      return "Your voter registration is waiting for admin approval.";
+    }
+
+    if (registrationStatus === "APPROVED") {
+      return "Your voter registration is approved. You can vote while the election is Open.";
+    }
+
+    if (registrationStatus === "REJECTED") {
+      return `Your voter registration was rejected.${
+        voterRegistration.registration?.rejectionReason
+          ? ` Reason: ${voterRegistration.registration.rejectionReason}`
+          : ""
+      }`;
+    }
+
+    return "Register as a voter before casting a ballot.";
+  })();
+
+  const lifecycleGateMessage = (() => {
+    if (isElectionClosed) {
+      return "Election is closed. Voting is no longer available.";
+    }
+
+    if (!isElectionOpen) {
+      return "Election is not open yet.";
+    }
+
+    return null;
+  })();
 
   useEffect(() => {
     getConnectedLocalElection()
@@ -134,6 +175,18 @@ export function Dashboard() {
     setLastProofMs(null);
     setLastTxHash(null);
 
+    if (!isRegistrationApproved) {
+      setStatus("error");
+      setErrorMessage(registrationGateMessage);
+      return;
+    }
+
+    if (!isElectionOpen) {
+      setStatus("error");
+      setErrorMessage(lifecycleGateMessage ?? "Election is not open yet.");
+      return;
+    }
+
     try {
       setStatus("generating");
       const connection = await connectLocalElection();
@@ -173,6 +226,18 @@ export function Dashboard() {
     setErrorMessage(null);
     setLastProofMs(null);
     setLastTxHash(null);
+
+    if (!isRegistrationApproved) {
+      setStatus("error");
+      setErrorMessage(registrationGateMessage);
+      return;
+    }
+
+    if (!isElectionOpen) {
+      setStatus("error");
+      setErrorMessage(lifecycleGateMessage ?? "Election is not open yet.");
+      return;
+    }
 
     try {
       setStatus("submitting");
@@ -292,11 +357,42 @@ export function Dashboard() {
           </div>
         </div>
 
+        <VoterRegistrationPanel registrationState={voterRegistration} />
+
+        <section className="mb-8 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+            <div>
+              <h2 className="text-lg font-bold text-slate-900">Voting Eligibility</h2>
+              <p
+                className={`mt-2 text-sm ${
+                  isRegistrationApproved ? "text-emerald-700" : "text-amber-700"
+                }`}
+              >
+                {registrationGateMessage}
+              </p>
+              {lifecycleGateMessage && (
+                <p className="mt-1 text-sm text-slate-600">{lifecycleGateMessage}</p>
+              )}
+              <p className="mt-2 text-xs text-slate-500">
+                Approval confirms voter eligibility only. It is not linked to the final candidate choice.
+              </p>
+            </div>
+            <span
+              className={`inline-flex w-fit rounded-full border px-3 py-1 text-xs font-semibold ${
+                canSubmitVote
+                  ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                  : "border-slate-200 bg-slate-50 text-slate-600"
+              }`}
+            >
+              {canSubmitVote ? "Voting enabled" : "Voting disabled"}
+            </span>
+          </div>
+        </section>
+
         {/* Candidate Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8">
           {CANDIDATES.map((candidate) => {
             const isVoted = votedFor === candidate.id;
-            const hasVotedAny = votedFor !== null;
             
             return (
               <div 
@@ -331,11 +427,11 @@ export function Dashboard() {
                 {/* Vote Action */}
                 <button
                   onClick={() => handleVote(candidate.id, candidate.candidateId)}
-                  disabled={hasVotedAny || isWorking}
+                  disabled={!canSubmitVote}
                   className={`w-full py-2.5 px-4 rounded-xl text-sm font-semibold transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 ${
                     isVoted 
                       ? 'bg-blue-50 text-blue-700 border border-blue-200 cursor-default' 
-                      : hasVotedAny || isWorking
+                      : !canSubmitVote
                         ? 'bg-slate-100 text-slate-400 cursor-not-allowed border border-transparent'
                         : 'bg-blue-600 text-white hover:bg-blue-700 hover:shadow-sm focus:ring-blue-500 active:bg-blue-800'
                   }`}
@@ -368,11 +464,11 @@ export function Dashboard() {
                 className="inline-flex items-center justify-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-4 py-2.5 text-sm font-semibold text-blue-700 transition hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {isProofGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <FlaskConical className="h-4 w-4" />}
-                Generate proof locally
+                Generate proof dev check
               </button>
               <button
                 onClick={handleFixtureVote}
-                disabled={isWorking || votedFor !== null}
+                disabled={!canSubmitVote}
                 className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <CheckCircle2 className="h-4 w-4" />

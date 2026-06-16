@@ -2,6 +2,8 @@ import { AlertCircle, CheckCircle2, LinkIcon, Loader2, ShieldCheck, Wallet } fro
 import { useState } from "react";
 import { DashboardHeader } from "../components/DashboardHeader";
 import { useAuth } from "../lib/authContext";
+import { localElection } from "../lib/localElection";
+import { useVoterRegistration } from "../lib/useVoterRegistration";
 
 type EthereumProvider = {
   request(args: { method: string; params?: unknown[] | Record<string, unknown> }): Promise<unknown>;
@@ -55,6 +57,7 @@ async function readSelectedWalletAccount() {
 
 export function Account() {
   const { linkWallet, user } = useAuth();
+  const voterRegistration = useVoterRegistration(localElection.electionId);
   const [status, setStatus] = useState<WalletLinkStatus>("idle");
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
 
@@ -162,6 +165,45 @@ export function Account() {
             </button>
           </div>
         </section>
+
+        {voterRegistration.status === "APPROVED" && voterRegistration.registration && (
+          <section className="mt-6 rounded-lg border border-emerald-200 bg-white p-5 shadow-sm sm:p-6">
+            <div className="mb-5 flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-lg font-bold text-slate-950">Approved registration evidence</h2>
+                <p className="mt-1 text-sm text-slate-600">
+                  Read-only local eligibility evidence for this demo account. The raw identity secret is not shown.
+                </p>
+              </div>
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700">
+                <CheckCircle2 className="h-5 w-5" />
+              </div>
+            </div>
+
+            <dl className="grid gap-5 sm:grid-cols-2">
+              <div>
+                <dt className="text-sm font-medium text-slate-500">Election ID</dt>
+                <dd className="mt-1 font-mono text-base font-semibold text-slate-950">
+                  {voterRegistration.registration.electionId}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-sm font-medium text-slate-500">Reviewed</dt>
+                <dd className="mt-1 text-base font-semibold text-slate-950">
+                  {voterRegistration.registration.reviewedAt
+                    ? formatDate(voterRegistration.registration.reviewedAt)
+                    : "Approved"}
+                </dd>
+              </div>
+              <div className="sm:col-span-2">
+                <dt className="text-sm font-medium text-slate-500">Identity commitment</dt>
+                <dd className="mt-1 break-all font-mono text-sm font-semibold text-slate-950">
+                  {voterRegistration.registration.identityCommitment}
+                </dd>
+              </div>
+            </dl>
+          </section>
+        )}
       </main>
     </div>
   );
