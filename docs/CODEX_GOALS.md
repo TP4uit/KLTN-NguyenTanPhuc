@@ -23,7 +23,7 @@
 - [x] Add admin voter registration management UI.
 - [x] Gate voting UI by approved registration.
 - [x] Add registration evidence summary and approved commitments export.
-- [ ] Connect approved registration state to ZK identity onboarding.
+- [x] Connect approved registration state to ZK identity onboarding.
 
 Verification notes:
 
@@ -37,3 +37,5 @@ Verification notes:
 - Registration evidence export includes election counts and approved identity commitments only; it excludes identity secrets, passwords, vote choices, candidate choices, proofs, nullifiers, and transaction hashes.
 - Headless Chrome smoke test passed for voter registration creation, admin approval, Registration Evidence display, copy JSON, download JSON, forbidden-field exclusion, and the approved voter account evidence card.
 - Headless Chrome smoke test passed for the Registration Evidence empty state when no approved commitments exist.
+- Approved registration proof readiness is fixture compatibility only: the seeded demo voter uses the static local registry fixture, while new demo accounts remain onboarding-only until a future dynamic Merkle registry goal.
+- Headless Chrome smoke test passed for seeded demo voter fixture compatibility and a newly registered voter approved-but-incompatible flow; current local `Registration` election state keeps vote controls disabled until Open.

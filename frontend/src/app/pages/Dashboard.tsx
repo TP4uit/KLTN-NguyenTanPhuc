@@ -17,6 +17,7 @@ import {
   type ElectionLifecycle,
 } from "../lib/localElection";
 import { buildLocalDemoProofInput, generateVoteProof } from "../lib/browserProof";
+import { getRegistrationProofCompatibility } from "../lib/registrationProofCompatibility";
 import { useVoterRegistration } from "../lib/useVoterRegistration";
 
 const CANDIDATES = [
@@ -83,10 +84,15 @@ export function Dashboard() {
   const voterRegistration = useVoterRegistration(localElection.electionId);
   const registrationStatus = voterRegistration.status;
   const isRegistrationApproved = registrationStatus === "APPROVED";
+  const proofCompatibility = getRegistrationProofCompatibility(voterRegistration.registration);
+  const isProofFixtureCompatible = proofCompatibility.isCompatible;
   const isElectionOpen = electionLifecycle.electionState === 1;
   const isElectionClosed = electionLifecycle.electionState === 2;
   const hasVotedAny = votedFor !== null;
-  const canSubmitVote = isRegistrationApproved && isElectionOpen && !isWorking && !hasVotedAny;
+  const canSubmitVote =
+    isRegistrationApproved && isProofFixtureCompatible && isElectionOpen && !isWorking && !hasVotedAny;
+  const incompatibleApprovedMessage =
+    "This account is approved locally, but its identity is not in the current static ZK registry fixture yet.";
 
   const registrationGateMessage = (() => {
     if (registrationStatus === "PENDING") {
@@ -181,6 +187,12 @@ export function Dashboard() {
       return;
     }
 
+    if (!isProofFixtureCompatible) {
+      setStatus("error");
+      setErrorMessage(incompatibleApprovedMessage);
+      return;
+    }
+
     if (!isElectionOpen) {
       setStatus("error");
       setErrorMessage(lifecycleGateMessage ?? "Election is not open yet.");
@@ -230,6 +242,12 @@ export function Dashboard() {
     if (!isRegistrationApproved) {
       setStatus("error");
       setErrorMessage(registrationGateMessage);
+      return;
+    }
+
+    if (!isProofFixtureCompatible) {
+      setStatus("error");
+      setErrorMessage(incompatibleApprovedMessage);
       return;
     }
 
@@ -372,6 +390,12 @@ export function Dashboard() {
               </p>
               {lifecycleGateMessage && (
                 <p className="mt-1 text-sm text-slate-600">{lifecycleGateMessage}</p>
+              )}
+              {isRegistrationApproved && !isProofFixtureCompatible && (
+                <p className="mt-1 text-sm text-amber-700">{incompatibleApprovedMessage}</p>
+              )}
+              {isRegistrationApproved && isProofFixtureCompatible && (
+                <p className="mt-1 text-sm text-emerald-700">Proof fixture compatible.</p>
               )}
               <p className="mt-2 text-xs text-slate-500">
                 Approval confirms voter eligibility only. It is not linked to the final candidate choice.

@@ -3,6 +3,7 @@ import { useState } from "react";
 import { DashboardHeader } from "../components/DashboardHeader";
 import { useAuth } from "../lib/authContext";
 import { localElection } from "../lib/localElection";
+import { getRegistrationProofCompatibility } from "../lib/registrationProofCompatibility";
 import { useVoterRegistration } from "../lib/useVoterRegistration";
 
 type EthereumProvider = {
@@ -58,6 +59,7 @@ async function readSelectedWalletAccount() {
 export function Account() {
   const { linkWallet, user } = useAuth();
   const voterRegistration = useVoterRegistration(localElection.electionId);
+  const proofCompatibility = getRegistrationProofCompatibility(voterRegistration.registration);
   const [status, setStatus] = useState<WalletLinkStatus>("idle");
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
 
@@ -194,6 +196,23 @@ export function Account() {
                     ? formatDate(voterRegistration.registration.reviewedAt)
                     : "Approved"}
                 </dd>
+              </div>
+              <div className="sm:col-span-2">
+                <dt className="text-sm font-medium text-slate-500">Proof fixture compatibility</dt>
+                <dd
+                  className={`mt-1 text-base font-semibold ${
+                    proofCompatibility.isCompatible ? "text-emerald-700" : "text-amber-700"
+                  }`}
+                >
+                  {proofCompatibility.isCompatible
+                    ? "Proof fixture compatible"
+                    : "Onboarding only, not in current proof fixture"}
+                </dd>
+                {!proofCompatibility.isCompatible && (
+                  <p className="mt-1 text-sm text-amber-700">
+                    Approved locally, but this identity is not in the current static ZK registry fixture yet.
+                  </p>
+                )}
               </div>
               <div className="sm:col-span-2">
                 <dt className="text-sm font-medium text-slate-500">Identity commitment</dt>

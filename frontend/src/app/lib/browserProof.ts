@@ -30,6 +30,7 @@ export type BrowserVoteProofResult = {
 type RegistryFixture = {
   localDemoOnly: boolean;
   selectedVoterSecret: string;
+  selectedIdentityCommitment: string;
   selectedNullifierHash: string;
   selectedElectionId: string;
   merkleRoot: string;
@@ -41,6 +42,23 @@ const DEFAULT_WASM_PATH = "/zk/vote.wasm";
 const DEFAULT_ZKEY_PATH = "/zk/vote_final.zkey";
 
 export const localRegistryFixture = registryFixture as RegistryFixture;
+
+export type LocalRegistryFixtureIdentity = {
+  selectedVoterSecret: string;
+  selectedIdentityCommitment: string;
+  selectedElectionId: string;
+  merkleRoot: string;
+};
+
+export function getLocalRegistryFixtureIdentity(): LocalRegistryFixtureIdentity {
+  // Local demo fixture compatibility only; this is not production registration or registry logic.
+  return {
+    selectedVoterSecret: localRegistryFixture.selectedVoterSecret,
+    selectedIdentityCommitment: localRegistryFixture.selectedIdentityCommitment,
+    selectedElectionId: localRegistryFixture.selectedElectionId,
+    merkleRoot: localRegistryFixture.merkleRoot,
+  };
+}
 
 function getLocalDemoNullifierHash(input: BrowserVoteProofInput) {
   if (

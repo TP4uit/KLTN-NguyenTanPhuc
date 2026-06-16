@@ -1,5 +1,6 @@
 import { AlertCircle, CheckCircle2, Clock3, Fingerprint, Loader2, RefreshCw, ShieldAlert } from "lucide-react";
 import { currentElectionId } from "../lib/localVoterRegistration";
+import { getRegistrationProofCompatibility } from "../lib/registrationProofCompatibility";
 import { useVoterRegistration, type UseVoterRegistrationResult } from "../lib/useVoterRegistration";
 import type { VoterRegistrationStatus } from "../lib/voterRegistrationModel";
 
@@ -62,6 +63,7 @@ export function VoterRegistrationPanel({ registrationState }: VoterRegistrationP
   const handleCreateRegistration = () => {
     void createRegistration();
   };
+  const proofCompatibility = getRegistrationProofCompatibility(registration);
 
   return (
     <section className="mb-10 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
@@ -79,6 +81,9 @@ export function VoterRegistrationPanel({ registrationState }: VoterRegistrationP
           </p>
           <p className="mt-2 text-sm leading-6 text-slate-600">
             Your demo identity secret stays in this browser. Losing it may prevent proof generation in later flows.
+          </p>
+          <p className="mt-2 text-sm leading-6 text-slate-600">
+            Seeded demo voter uses the local registry fixture. New demo accounts require a future dynamic registry goal before matching proofs can be generated.
           </p>
         </div>
 
@@ -131,6 +136,27 @@ export function VoterRegistrationPanel({ registrationState }: VoterRegistrationP
         {status === "APPROVED" && registration && (
           <div className="space-y-2">
             <p className="font-semibold text-emerald-800">Approved voter.</p>
+            <p
+              className={`font-semibold ${
+                proofCompatibility.isCompatible ? "text-emerald-800" : "text-amber-800"
+              }`}
+            >
+              {proofCompatibility.isCompatible
+                ? "Proof fixture compatible"
+                : "Onboarding only, not in current proof fixture"}
+            </p>
+            {proofCompatibility.isCompatible ? (
+              <p>
+                fixture merkleRoot:{" "}
+                <span className="font-mono text-slate-900" title={proofCompatibility.fixtureMerkleRoot}>
+                  {formatCommitment(proofCompatibility.fixtureMerkleRoot)}
+                </span>
+              </p>
+            ) : (
+              <p className="text-amber-800">
+                Approved locally, but this identity is not in the current static ZK registry fixture yet.
+              </p>
+            )}
             <p>
               identityCommitment:{" "}
               <span className="font-mono text-slate-900" title={registration.identityCommitment}>

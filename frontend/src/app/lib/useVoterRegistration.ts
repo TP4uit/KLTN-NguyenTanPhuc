@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth } from "./authContext";
+import { getLocalRegistryFixtureIdentity } from "./browserProof";
 import { deriveDemoIdentityCommitment, generateDemoIdentitySecret } from "./demoIdentity";
 import {
   createPendingRegistration,
@@ -26,6 +27,10 @@ export type UseVoterRegistrationResult = {
 
 function getErrorMessage(error: unknown, fallbackMessage: string) {
   return error instanceof Error && error.message.trim() ? error.message : fallbackMessage;
+}
+
+function isSeededFixtureVoter(user: { id: string; email: string }) {
+  return user.id === "demo-voter" || user.email.trim().toLowerCase() === "voter@zkvote.local";
 }
 
 export function useVoterRegistration(electionId = currentElectionId): UseVoterRegistrationResult {
@@ -76,8 +81,12 @@ export function useVoterRegistration(electionId = currentElectionId): UseVoterRe
     setError(null);
 
     try {
-      const secret = generateDemoIdentitySecret();
-      const identityCommitment = await deriveDemoIdentityCommitment(secret, normalizedElectionId, user.id);
+      const fixtureIdentity = getLocalRegistryFixtureIdentity();
+      const usesLocalFixture = isSeededFixtureVoter(user);
+      const secret = usesLocalFixture ? fixtureIdentity.selectedVoterSecret : generateDemoIdentitySecret();
+      const identityCommitment = usesLocalFixture
+        ? fixtureIdentity.selectedIdentityCommitment
+        : await deriveDemoIdentityCommitment(secret, normalizedElectionId, user.id);
       const nextIdentitySecret = saveIdentitySecret(user.id, normalizedElectionId, secret);
       const nextRegistration = createPendingRegistration({
         userId: user.id,
