@@ -1,6 +1,6 @@
 {
   "kind": "gas-benchmark",
-  "generatedAt": "2026-06-14T08:18:38.942Z",
+  "generatedAt": "2026-06-14T19:41:05.595Z",
   "environment": {
     "node": "v24.14.1",
     "platform": "win32",
@@ -42,18 +42,18 @@
       "name": "Closed"
     },
     "openElection": {
-      "txHash": "0xf1e682ae4054ba6406c4e002d856e028b469edbeed201f0d0954c17389197f04",
+      "txHash": "0x66557dec0534864b9268038c317ec8930a6833d008631823abde2417fc3f3537",
       "gasUsed": "49560"
     },
     "closeElection": {
-      "txHash": "0x5247eff5d8a96ec32fa1701b63e71fe05acb30c0fe3c06224e81495ac701508c",
+      "txHash": "0x0e06be29f84ab0811ee1eb81712c97d8b9ccd4c20eaf83d0a2354093c3131fa7",
       "gasUsed": "29926"
     }
   },
   "transactions": {
     "validCastVote": {
-      "txHash": "0x877f8541fb9602fb64ae8b5a4c14da19c998db4b9285a9ce780656a26a502656",
-      "gasUsed": "303035",
+      "txHash": "0xb7caaae0b65f7b872b21a03a4bd0d0263f372fc15ff2278998b0b2f64be9752a",
+      "gasUsed": "303047",
       "candidateId": "1",
       "updatedVotes": "1"
     },

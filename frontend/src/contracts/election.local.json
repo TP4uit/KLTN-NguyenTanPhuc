@@ -1,6 +1,6 @@
 {
-  "network": "default",
-  "networkType": "edr-simulated",
+  "network": "localhost",
+  "networkType": "http",
   "chainId": "31337",
   "deployer": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
   "verifierAddress": "0x5FbDB2315678afecb367f032d93F642f64180aa3",
@@ -13,9 +13,9 @@
   },
   "electionId": "1",
   "merkleRoot": "7932749078796165988725230467181390602760147441196774940239533986225546804780",
-  "electionState": 1,
-  "electionStateName": "Open",
-  "autoOpened": true,
+  "electionState": 0,
+  "electionStateName": "Registration",
+  "autoOpened": false,
   "candidateBounds": {
     "min": 1,
     "max": 4
@@ -24,7 +24,7 @@
     "min": 1,
     "max": 4
   },
-  "timestamp": "2026-06-14T08:43:40.314Z",
+  "timestamp": "2026-06-14T19:09:19.692Z",
   "publicInputOrder": [
     "nullifierHash",
     "candidateId",
