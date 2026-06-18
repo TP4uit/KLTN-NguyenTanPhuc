@@ -44,6 +44,7 @@ Verification notes:
 
 - [x] Add dynamic registry preview from approved commitments.
 - [x] Add Merkle root safety and alignment panel.
+- [x] Add safe admin Merkle root set flow.
 
 Verification notes:
 
@@ -54,3 +55,5 @@ Verification notes:
 - Headless Chrome smoke test passed for Registry Preview overflow warning when approved commitments exceed capacity.
 - Merkle Root Alignment compares contract/admin state, static proof fixture, registry preview, and metadata roots. It recommends the static proof fixture root and only fills the New Merkle root input when requested; it does not submit `setMerkleRoot`.
 - Headless Chrome smoke test passed for Merkle Root Alignment display, fixture/preview/alignment JSON copy actions, fixture-root input fill, and no automatic transaction submission.
+- Admin `setMerkleRoot` now requires an in-page confirmation showing the selected root, root classification, election state, and Registration-only warning before submitting the unchanged contract call.
+- Headless Chrome smoke tests passed for fixture/preview/Clear source buttons, live root classification, no-wallet disabled submit state, confirmation cancel with zero transactions, and mocked-admin confirmation submit sending one `setMerkleRoot` call with the fixture root.

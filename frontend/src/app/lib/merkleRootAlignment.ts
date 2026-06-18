@@ -14,6 +14,14 @@ export type MerkleRootAlignment = {
   warnings: string[];
 };
 
+export type MerkleRootClassificationKind = "EMPTY" | "FIXTURE" | "PREVIEW" | "CUSTOM";
+
+export type MerkleRootClassification = {
+  kind: MerkleRootClassificationKind;
+  label: string;
+  warning?: string;
+};
+
 function normalizeRoot(value: string) {
   return value.trim();
 }
@@ -66,5 +74,40 @@ export async function buildMerkleRootAlignment(contractRoot: string): Promise<Me
     metadataMatchesFixture,
     recommendedRoot: fixtureRoot,
     warnings,
+  };
+}
+
+export function classifyMerkleRootInput(
+  root: string,
+  alignment: Pick<MerkleRootAlignment, "fixtureRoot" | "previewRoot"> | null,
+): MerkleRootClassification {
+  const normalizedRoot = normalizeRoot(root);
+
+  if (!normalizedRoot) {
+    return {
+      kind: "EMPTY",
+      label: "No root selected",
+    };
+  }
+
+  if (alignment && rootsMatch(normalizedRoot, alignment.fixtureRoot)) {
+    return {
+      kind: "FIXTURE",
+      label: "Proof-compatible fixture root",
+    };
+  }
+
+  if (alignment && rootsMatch(normalizedRoot, alignment.previewRoot)) {
+    return {
+      kind: "PREVIEW",
+      label: "Preview-only root",
+      warning: "Browser proof voting may fail because current proof generation expects the static fixture root.",
+    };
+  }
+
+  return {
+    kind: "CUSTOM",
+    label: "Custom root",
+    warning: "Browser proof voting may fail because current proof generation expects the static fixture root.",
   };
 }

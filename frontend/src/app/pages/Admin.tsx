@@ -1,9 +1,14 @@
-import { AlertCircle, CheckCircle2, KeyRound, Loader2, Lock, RefreshCw, Shield, Wallet } from "lucide-react";
+import { AlertCircle, AlertTriangle, CheckCircle2, KeyRound, Loader2, Lock, RefreshCw, Shield, Wallet, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { AdminMerkleRootAlignment } from "../components/AdminMerkleRootAlignment";
 import { AdminRegistryPreview } from "../components/AdminRegistryPreview";
 import { AdminVoterRegistrationManager } from "../components/AdminVoterRegistrationManager";
 import { DashboardHeader } from "../components/DashboardHeader";
+import {
+  buildMerkleRootAlignment,
+  classifyMerkleRootInput,
+  type MerkleRootAlignment,
+} from "../lib/merkleRootAlignment";
 import {
   connectLocalElection,
   formatAccount,
@@ -21,6 +26,9 @@ export function Admin() {
   const [account, setAccount] = useState<string | null>(null);
   const [adminState, setAdminState] = useState<ElectionAdminState | null>(null);
   const [newRoot, setNewRoot] = useState("");
+  const [alignment, setAlignment] = useState<MerkleRootAlignment | null>(null);
+  const [alignmentError, setAlignmentError] = useState<string | null>(null);
+  const [showRootConfirmation, setShowRootConfirmation] = useState(false);
   const [status, setStatus] = useState<AdminStatus>("idle");
   const [statusMessage, setStatusMessage] = useState("Connect MetaMask to manage the local election lifecycle.");
   const [lastTxHash, setLastTxHash] = useState<string | null>(null);
@@ -47,6 +55,15 @@ export function Admin() {
   const canSetRoot = canManage && lifecycle.electionState === 0 && rootIsNonZero && !isBusy;
   const canOpen = canManage && lifecycle.electionState === 0 && !isBusy;
   const canClose = canManage && lifecycle.electionState === 1 && !isBusy;
+  const rootClassification = useMemo(
+    () => classifyMerkleRootInput(normalizedRoot, alignment),
+    [alignment, normalizedRoot],
+  );
+
+  const updateNewRoot = (root: string) => {
+    setNewRoot(root);
+    setShowRootConfirmation(false);
+  };
 
   const loadExistingConnection = async () => {
     try {
@@ -70,6 +87,32 @@ export function Admin() {
   useEffect(() => {
     void loadExistingConnection();
   }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    buildMerkleRootAlignment(lifecycle.merkleRoot)
+      .then((nextAlignment) => {
+        if (!isMounted) {
+          return;
+        }
+
+        setAlignment(nextAlignment);
+        setAlignmentError(null);
+      })
+      .catch((error) => {
+        if (!isMounted) {
+          return;
+        }
+
+        setAlignment(null);
+        setAlignmentError(error instanceof Error ? error.message : "Unable to load Merkle root alignment.");
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [lifecycle.merkleRoot]);
 
   const connectAndRefresh = async () => {
     setStatus("loading");
@@ -130,6 +173,9 @@ export function Admin() {
       setLastTxHash(receipt?.hash ?? tx.hash);
       setStatus("success");
       setStatusMessage(`${label} confirmed.`);
+      if (label === "setMerkleRoot") {
+        setShowRootConfirmation(false);
+      }
     } catch (error) {
       setStatus("error");
       setStatusMessage(error instanceof Error ? error.message : `${label} failed.`);
@@ -146,6 +192,30 @@ export function Admin() {
     if (!rootIsNonZero) {
       setStatus("error");
       setStatusMessage("Merkle root must be greater than zero.");
+      return;
+    }
+
+    if (!canManage) {
+      setStatus("error");
+      setStatusMessage("Only admin can manage election lifecycle.");
+      return;
+    }
+
+    if (lifecycle.electionState !== 0) {
+      setStatus("error");
+      setStatusMessage("setMerkleRoot is only available during Registration state.");
+      return;
+    }
+
+    setShowRootConfirmation(true);
+    setStatus("idle");
+    setStatusMessage("Review and confirm the Merkle root before submitting setMerkleRoot.");
+  };
+
+  const handleConfirmSetMerkleRoot = async () => {
+    if (!canSetRoot) {
+      setStatus("error");
+      setStatusMessage("setMerkleRoot is only available for the admin during Registration with a valid root.");
       return;
     }
 
@@ -267,7 +337,7 @@ export function Admin() {
 
         <AdminMerkleRootAlignment
           contractRoot={lifecycle.merkleRoot}
-          onUseFixtureRoot={(root) => setNewRoot(root)}
+          onUseFixtureRoot={updateNewRoot}
         />
 
         <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -303,11 +373,44 @@ export function Admin() {
                 <label htmlFor="merkle-root" className="block text-sm font-medium text-slate-700 mb-2">
                   New Merkle root
                 </label>
+                <div className="mb-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
+                  <button
+                    onClick={() => alignment && updateNewRoot(alignment.fixtureRoot)}
+                    disabled={!alignment || isBusy}
+                    className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-left text-sm font-semibold text-emerald-800 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    Use static proof fixture root
+                    <span className="mt-1 block text-xs font-normal text-emerald-700">
+                      Recommended for current browser proof demo
+                    </span>
+                  </button>
+                  <button
+                    onClick={() => alignment && updateNewRoot(alignment.previewRoot)}
+                    disabled={!alignment || isBusy}
+                    className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-left text-sm font-semibold text-amber-800 transition hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    Use registry preview root
+                    <span className="mt-1 block text-xs font-normal text-amber-700">
+                      Preview-only, not proof-compatible yet
+                    </span>
+                  </button>
+                  <button
+                    onClick={() => updateNewRoot("")}
+                    disabled={isBusy || !newRoot}
+                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    <X className="h-4 w-4" />
+                    Clear
+                  </button>
+                </div>
                 <div className="flex flex-col sm:flex-row gap-3">
                   <input
                     id="merkle-root"
                     value={newRoot}
-                    onChange={(event) => setNewRoot(event.target.value)}
+                    onChange={(event) => {
+                      setNewRoot(event.target.value);
+                      setShowRootConfirmation(false);
+                    }}
                     inputMode="numeric"
                     placeholder="Enter non-zero numeric root"
                     disabled={isBusy || lifecycle.electionState !== 0 || !canManage}
@@ -321,9 +424,76 @@ export function Admin() {
                     Set root
                   </button>
                 </div>
+                <div
+                  className={`mt-3 rounded-xl border px-4 py-3 text-sm ${
+                    rootClassification.kind === "FIXTURE"
+                      ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                      : rootClassification.kind === "EMPTY"
+                        ? "border-slate-200 bg-slate-50 text-slate-600"
+                        : "border-amber-200 bg-amber-50 text-amber-800"
+                  }`}
+                >
+                  <div className="font-semibold">{rootClassification.label}</div>
+                  {rootClassification.warning && (
+                    <div className="mt-1 flex items-start gap-2">
+                      <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                      <span>{rootClassification.warning}</span>
+                    </div>
+                  )}
+                  {alignmentError && <div className="mt-1 text-red-700">{alignmentError}</div>}
+                </div>
                 <p className="mt-2 text-xs text-slate-500">
                   Available only during Registration and only for the admin wallet.
                 </p>
+                {showRootConfirmation && (
+                  <div className="mt-4 rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">
+                    <div className="mb-3 flex items-start gap-2">
+                      <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                      <div>
+                        <div className="font-semibold">Confirm setMerkleRoot</div>
+                        <p className="mt-1">
+                          setMerkleRoot only works during Registration state. Current election state:{" "}
+                          <span className="font-semibold">{lifecycle.electionStateName}</span>.
+                        </p>
+                      </div>
+                    </div>
+                    <dl className="space-y-3">
+                      <div>
+                        <dt className="font-medium">Selected root</dt>
+                        <dd className="mt-1 break-all font-mono text-xs text-slate-950">{normalizedRoot}</dd>
+                      </div>
+                      <div>
+                        <dt className="font-medium">Root classification</dt>
+                        <dd className="mt-1 font-semibold">{rootClassification.label}</dd>
+                      </div>
+                    </dl>
+                    {rootClassification.warning && (
+                      <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-amber-800">
+                        {rootClassification.warning}
+                      </div>
+                    )}
+                    <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+                      <button
+                        onClick={handleConfirmSetMerkleRoot}
+                        disabled={!canSetRoot}
+                        className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        Confirm and submit setMerkleRoot
+                      </button>
+                      <button
+                        onClick={() => {
+                          setShowRootConfirmation(false);
+                          setStatus("idle");
+                          setStatusMessage("setMerkleRoot cancelled before submission.");
+                        }}
+                        disabled={isBusy}
+                        className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
