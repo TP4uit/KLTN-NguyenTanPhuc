@@ -1,5 +1,6 @@
 import { AlertCircle, CheckCircle2, KeyRound, Loader2, Lock, RefreshCw, Shield, Wallet } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { AdminMerkleRootAlignment } from "../components/AdminMerkleRootAlignment";
 import { AdminRegistryPreview } from "../components/AdminRegistryPreview";
 import { AdminVoterRegistrationManager } from "../components/AdminVoterRegistrationManager";
 import { DashboardHeader } from "../components/DashboardHeader";
@@ -263,6 +264,11 @@ export function Admin() {
 
         <AdminVoterRegistrationManager />
         <AdminRegistryPreview />
+
+        <AdminMerkleRootAlignment
+          contractRoot={lifecycle.merkleRoot}
+          onUseFixtureRoot={(root) => setNewRoot(root)}
+        />
 
         <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6 shadow-sm">

@@ -43,6 +43,7 @@ Verification notes:
 ## Goal 3 - Registry and Merkle Root Workflow
 
 - [x] Add dynamic registry preview from approved commitments.
+- [x] Add Merkle root safety and alignment panel.
 
 Verification notes:
 
@@ -51,3 +52,5 @@ Verification notes:
 - Registry preview JSON includes election metadata, preview tree levels, approved leaves, and warnings only; it excludes identity secrets, passwords, vote choices, candidate choices, proofs, nullifiers, and transaction hashes.
 - Headless Chrome smoke test passed for approved voter registration, Registry Preview display, merkleRootPreview generation, copy JSON, download JSON, safe JSON shape, forbidden-field exclusion, and empty preview state.
 - Headless Chrome smoke test passed for Registry Preview overflow warning when approved commitments exceed capacity.
+- Merkle Root Alignment compares contract/admin state, static proof fixture, registry preview, and metadata roots. It recommends the static proof fixture root and only fills the New Merkle root input when requested; it does not submit `setMerkleRoot`.
+- Headless Chrome smoke test passed for Merkle Root Alignment display, fixture/preview/alignment JSON copy actions, fixture-root input fill, and no automatic transaction submission.
