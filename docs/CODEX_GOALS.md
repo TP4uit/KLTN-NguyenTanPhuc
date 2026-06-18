@@ -39,3 +39,15 @@ Verification notes:
 - Headless Chrome smoke test passed for the Registration Evidence empty state when no approved commitments exist.
 - Approved registration proof readiness is fixture compatibility only: the seeded demo voter uses the static local registry fixture, while new demo accounts remain onboarding-only until a future dynamic Merkle registry goal.
 - Headless Chrome smoke test passed for seeded demo voter fixture compatibility and a newly registered voter approved-but-incompatible flow; current local `Registration` election state keeps vote controls disabled until Open.
+
+## Goal 3 - Registry and Merkle Root Workflow
+
+- [x] Add dynamic registry preview from approved commitments.
+
+Verification notes:
+
+- Registry Preview is admin review state only. It does not update contracts, proof artifacts, browser proof generation, deployment scripts, or `Election.castVote`.
+- The preview root is generated from approved local identity commitments with deterministic SHA-256-derived demo hashes, not the Poseidon registry used by the ZK circuit.
+- Registry preview JSON includes election metadata, preview tree levels, approved leaves, and warnings only; it excludes identity secrets, passwords, vote choices, candidate choices, proofs, nullifiers, and transaction hashes.
+- Headless Chrome smoke test passed for approved voter registration, Registry Preview display, merkleRootPreview generation, copy JSON, download JSON, safe JSON shape, forbidden-field exclusion, and empty preview state.
+- Headless Chrome smoke test passed for Registry Preview overflow warning when approved commitments exceed capacity.

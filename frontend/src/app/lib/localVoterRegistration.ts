@@ -11,6 +11,7 @@ const REGISTRATIONS_KEY = "zkvote.voterRegistrations";
 const IDENTITY_SECRETS_KEY = "zkvote.localIdentitySecrets";
 
 export const currentElectionId = localElection.electionId;
+export const VOTER_REGISTRATIONS_CHANGED_EVENT = "zkvote:voterRegistrationsChanged";
 
 function getStorage() {
   if (typeof window === "undefined") {
@@ -71,6 +72,7 @@ function readRegistrations() {
 
 function writeRegistrations(registrations: VoterRegistration[]) {
   writeJson(REGISTRATIONS_KEY, registrations);
+  window.dispatchEvent(new Event(VOTER_REGISTRATIONS_CHANGED_EVENT));
 }
 
 function readIdentitySecrets() {
