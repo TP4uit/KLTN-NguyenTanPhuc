@@ -1,14 +1,16 @@
 import { AlertCircle, AlertTriangle, CheckCircle2, KeyRound, Loader2, Lock, RefreshCw, Shield, Wallet, X } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { AdminMerkleRootAlignment } from "../components/AdminMerkleRootAlignment";
 import { AdminRegistryPreview } from "../components/AdminRegistryPreview";
 import { AdminVoterRegistrationManager } from "../components/AdminVoterRegistrationManager";
 import { DashboardHeader } from "../components/DashboardHeader";
 import {
   buildMerkleRootAlignment,
+  classifyOpenElectionReadiness,
   classifyMerkleRootInput,
   type MerkleRootAlignment,
 } from "../lib/merkleRootAlignment";
+import { VOTER_REGISTRATIONS_CHANGED_EVENT } from "../lib/localVoterRegistration";
 import {
   connectLocalElection,
   formatAccount,
@@ -29,6 +31,7 @@ export function Admin() {
   const [alignment, setAlignment] = useState<MerkleRootAlignment | null>(null);
   const [alignmentError, setAlignmentError] = useState<string | null>(null);
   const [showRootConfirmation, setShowRootConfirmation] = useState(false);
+  const [showOpenConfirmation, setShowOpenConfirmation] = useState(false);
   const [status, setStatus] = useState<AdminStatus>("idle");
   const [statusMessage, setStatusMessage] = useState("Connect MetaMask to manage the local election lifecycle.");
   const [lastTxHash, setLastTxHash] = useState<string | null>(null);
@@ -59,6 +62,11 @@ export function Admin() {
     () => classifyMerkleRootInput(normalizedRoot, alignment),
     [alignment, normalizedRoot],
   );
+  const openReadiness = useMemo(
+    () => classifyOpenElectionReadiness(alignment, lifecycle.electionState),
+    [alignment, lifecycle.electionState],
+  );
+  const canConfirmOpen = canOpen && openReadiness.severity !== "blocked";
 
   const updateNewRoot = (root: string) => {
     setNewRoot(root);
@@ -88,6 +96,17 @@ export function Admin() {
     void loadExistingConnection();
   }, []);
 
+  const refreshAlignment = useCallback(async () => {
+    try {
+      const nextAlignment = await buildMerkleRootAlignment(lifecycle.merkleRoot);
+      setAlignment(nextAlignment);
+      setAlignmentError(null);
+    } catch (error) {
+      setAlignment(null);
+      setAlignmentError(error instanceof Error ? error.message : "Unable to load Merkle root alignment.");
+    }
+  }, [lifecycle.merkleRoot]);
+
   useEffect(() => {
     let isMounted = true;
 
@@ -113,6 +132,18 @@ export function Admin() {
       isMounted = false;
     };
   }, [lifecycle.merkleRoot]);
+
+  useEffect(() => {
+    const handleRegistrationsChanged = () => {
+      void refreshAlignment();
+    };
+
+    window.addEventListener(VOTER_REGISTRATIONS_CHANGED_EVENT, handleRegistrationsChanged);
+
+    return () => {
+      window.removeEventListener(VOTER_REGISTRATIONS_CHANGED_EVENT, handleRegistrationsChanged);
+    };
+  }, [refreshAlignment]);
 
   const connectAndRefresh = async () => {
     setStatus("loading");
@@ -176,6 +207,9 @@ export function Admin() {
       if (label === "setMerkleRoot") {
         setShowRootConfirmation(false);
       }
+      if (label === "openElection") {
+        setShowOpenConfirmation(false);
+      }
     } catch (error) {
       setStatus("error");
       setStatusMessage(error instanceof Error ? error.message : `${label} failed.`);
@@ -220,6 +254,40 @@ export function Admin() {
     }
 
     await runAdminTransaction("setMerkleRoot", (contract) => contract.setMerkleRoot(normalizedRoot));
+  };
+
+  const handleOpenElection = () => {
+    if (!canManage) {
+      setStatus("error");
+      setStatusMessage("Only admin can manage election lifecycle.");
+      return;
+    }
+
+    if (lifecycle.electionState !== 0) {
+      setStatus("error");
+      setStatusMessage("openElection is only available during Registration state.");
+      return;
+    }
+
+    setShowOpenConfirmation(true);
+    setStatus("idle");
+    setStatusMessage("Review Open Election Readiness before submitting openElection.");
+  };
+
+  const handleConfirmOpenElection = async () => {
+    if (openReadiness.severity === "blocked") {
+      setStatus("error");
+      setStatusMessage("openElection is blocked until readiness issues are resolved.");
+      return;
+    }
+
+    if (!canOpen) {
+      setStatus("error");
+      setStatusMessage("openElection is only available for the admin during Registration.");
+      return;
+    }
+
+    await runAdminTransaction("openElection", (contract) => contract.openElection());
   };
 
   return (
@@ -496,9 +564,133 @@ export function Admin() {
                 )}
               </div>
 
+              <div
+                className={`rounded-xl border px-4 py-4 text-sm ${
+                  openReadiness.severity === "success"
+                    ? "border-emerald-200 bg-emerald-50 text-emerald-900"
+                    : openReadiness.severity === "blocked"
+                      ? "border-red-200 bg-red-50 text-red-900"
+                      : "border-amber-200 bg-amber-50 text-amber-900"
+                }`}
+              >
+                <div className="mb-3 flex items-start gap-2">
+                  {openReadiness.severity === "success" ? (
+                    <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
+                  ) : (
+                    <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                  )}
+                  <div>
+                    <div className="font-semibold">Open Election Readiness</div>
+                    <p className="mt-1">
+                      For the current browser proof demo, open election only after contract root matches the static proof
+                      fixture root.
+                    </p>
+                  </div>
+                </div>
+                <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div>
+                    <dt className="font-medium">Current election state</dt>
+                    <dd className="mt-1 font-semibold">{lifecycle.electionStateName}</dd>
+                  </div>
+                  <div>
+                    <dt className="font-medium">Contract root status</dt>
+                    <dd className="mt-1 font-semibold">{openReadiness.label}</dd>
+                  </div>
+                  <div>
+                    <dt className="font-medium">Browser proof demo should work</dt>
+                    <dd className="mt-1 font-semibold">{openReadiness.canOpenSafely ? "Yes" : "No"}</dd>
+                  </div>
+                  <div>
+                    <dt className="font-medium">Contract root</dt>
+                    <dd className="mt-1 break-all font-mono text-xs text-slate-950">{lifecycle.merkleRoot}</dd>
+                  </div>
+                </dl>
+                {openReadiness.warnings.length > 0 && (
+                  <ul className="mt-3 space-y-2">
+                    {openReadiness.warnings.map((warning) => (
+                      <li key={warning} className="flex items-start gap-2">
+                        <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                        <span>{warning}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+
+              {showOpenConfirmation && (
+                <div
+                  className={`rounded-xl border p-4 text-sm ${
+                    openReadiness.severity === "blocked"
+                      ? "border-red-200 bg-red-50 text-red-900"
+                      : openReadiness.severity === "warning"
+                        ? "border-amber-200 bg-amber-50 text-amber-900"
+                        : "border-emerald-200 bg-emerald-50 text-emerald-900"
+                  }`}
+                >
+                  <div className="mb-3 flex items-start gap-2">
+                    {openReadiness.severity === "success" ? (
+                      <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
+                    ) : (
+                      <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                    )}
+                    <div>
+                      <div className="font-semibold">Confirm openElection</div>
+                      <p className="mt-1">
+                        Review the current root before opening the election. Warnings are allowed, but blocked readiness
+                        must be resolved first.
+                      </p>
+                    </div>
+                  </div>
+                  <dl className="space-y-3">
+                    <div>
+                      <dt className="font-medium">Current election state</dt>
+                      <dd className="mt-1 font-semibold">{lifecycle.electionStateName}</dd>
+                    </div>
+                    <div>
+                      <dt className="font-medium">Contract root</dt>
+                      <dd className="mt-1 break-all font-mono text-xs text-slate-950">{lifecycle.merkleRoot}</dd>
+                    </div>
+                    <div>
+                      <dt className="font-medium">Readiness</dt>
+                      <dd className="mt-1 font-semibold">{openReadiness.label}</dd>
+                    </div>
+                  </dl>
+                  {openReadiness.warnings.length > 0 && (
+                    <ul className="mt-3 space-y-2">
+                      {openReadiness.warnings.map((warning) => (
+                        <li key={warning} className="flex items-start gap-2">
+                          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                          <span>{warning}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+                    <button
+                      onClick={() => {
+                        setShowOpenConfirmation(false);
+                        setStatus("idle");
+                        setStatusMessage("openElection cancelled before submission.");
+                      }}
+                      disabled={isBusy}
+                      className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleConfirmOpenElection}
+                      disabled={!canConfirmOpen}
+                      className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      Confirm openElection
+                    </button>
+                  </div>
+                </div>
+              )}
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <button
-                  onClick={() => runAdminTransaction("openElection", (contract) => contract.openElection())}
+                  onClick={handleOpenElection}
                   disabled={!canOpen}
                   className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
                 >

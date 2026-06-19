@@ -45,6 +45,7 @@ Verification notes:
 - [x] Add dynamic registry preview from approved commitments.
 - [x] Add Merkle root safety and alignment panel.
 - [x] Add safe admin Merkle root set flow.
+- [x] Add safe admin Open Election flow.
 
 Verification notes:
 
@@ -57,3 +58,6 @@ Verification notes:
 - Headless Chrome smoke test passed for Merkle Root Alignment display, fixture/preview/alignment JSON copy actions, fixture-root input fill, and no automatic transaction submission.
 - Admin `setMerkleRoot` now requires an in-page confirmation showing the selected root, root classification, election state, and Registration-only warning before submitting the unchanged contract call.
 - Headless Chrome smoke tests passed for fixture/preview/Clear source buttons, live root classification, no-wallet disabled submit state, confirmation cancel with zero transactions, and mocked-admin confirmation submit sending one `setMerkleRoot` call with the fixture root.
+- Admin `openElection` now shows Open Election Readiness before lifecycle buttons and requires in-page confirmation before submitting the unchanged `openElection` contract call.
+- Open Election Readiness blocks non-Registration or zero-root states, marks the static proof fixture root as browser proof-compatible, and warns for preview/custom roots because preview roots are not proof-compatible until matching Poseidon proof inputs are generated.
+- Headless Chrome smoke test passed for readiness display, fixture success, preview/custom warnings, `openElection` cancel with zero transactions, confirmed `openElection` selector, and `closeElection` from Open state.

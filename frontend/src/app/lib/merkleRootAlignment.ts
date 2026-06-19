@@ -22,12 +22,35 @@ export type MerkleRootClassification = {
   warning?: string;
 };
 
+export type OpenElectionReadinessSeverity = "success" | "warning" | "blocked";
+
+export type OpenElectionReadiness = {
+  canOpenSafely: boolean;
+  severity: OpenElectionReadinessSeverity;
+  label: string;
+  warnings: string[];
+};
+
 function normalizeRoot(value: string) {
   return value.trim();
 }
 
 function rootsMatch(left: string, right: string) {
   return normalizeRoot(left) === normalizeRoot(right);
+}
+
+function isEmptyOrZeroRoot(value: string) {
+  const normalizedValue = normalizeRoot(value);
+
+  if (!normalizedValue) {
+    return true;
+  }
+
+  if (!/^\d+$/.test(normalizedValue)) {
+    return false;
+  }
+
+  return BigInt(normalizedValue) === 0n;
 }
 
 export async function buildMerkleRootAlignment(contractRoot: string): Promise<MerkleRootAlignment> {
@@ -74,6 +97,65 @@ export async function buildMerkleRootAlignment(contractRoot: string): Promise<Me
     metadataMatchesFixture,
     recommendedRoot: fixtureRoot,
     warnings,
+  };
+}
+
+export function classifyOpenElectionReadiness(
+  alignment: MerkleRootAlignment | null,
+  lifecycleState: number,
+): OpenElectionReadiness {
+  if (!alignment) {
+    return {
+      canOpenSafely: false,
+      severity: "blocked",
+      label: "Merkle root alignment unavailable",
+      warnings: ["Load Merkle root alignment before opening the election."],
+    };
+  }
+
+  if (lifecycleState !== 0) {
+    return {
+      canOpenSafely: false,
+      severity: "blocked",
+      label: "Election is not in Registration",
+      warnings: ["openElection is only available while the election is in Registration state."],
+    };
+  }
+
+  if (isEmptyOrZeroRoot(alignment.contractRoot)) {
+    return {
+      canOpenSafely: false,
+      severity: "blocked",
+      label: "Contract root is empty or zero",
+      warnings: ["Set a non-zero Merkle root before opening the election."],
+    };
+  }
+
+  if (alignment.contractMatchesFixture) {
+    return {
+      canOpenSafely: true,
+      severity: "success",
+      label: "Browser proof demo root-compatible",
+      warnings: [],
+    };
+  }
+
+  if (alignment.contractMatchesPreview) {
+    return {
+      canOpenSafely: false,
+      severity: "warning",
+      label: "Preview root selected; browser proof demo not ready",
+      warnings: [
+        "The contract root matches the registry preview root, but the current browser proof demo will not work yet.",
+      ],
+    };
+  }
+
+  return {
+    canOpenSafely: false,
+    severity: "warning",
+    label: "Custom root may break browser proof demo",
+    warnings: ["The contract root does not match the static fixture or registry preview root."],
   };
 }
 
