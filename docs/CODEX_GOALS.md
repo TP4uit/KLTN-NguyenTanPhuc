@@ -66,6 +66,7 @@ Verification notes:
 
 - [x] Make Results page honest about on-chain tally state.
 - [x] Add Results audit export.
+- [x] Add auditor-facing audit verification workspace.
 
 Verification notes:
 
@@ -76,3 +77,6 @@ Verification notes:
 - Headless Chrome smoke test passed for disconnected `/results`, zero on-chain tallies, `getVotes` calls for candidates 1-4, and refreshed mocked on-chain tally/block updates. A real localhost chain was not running for an end-to-end `castVote` smoke.
 - Results Audit Export emits public tally data, local demo approved-voter counts, source/block/lifecycle metadata, candidate sum checks, and warnings only; it excludes voter identities, secrets, passwords, vote choices, proofs, nullifiers, private wallet data, and transaction hashes.
 - Headless Chrome smoke test passed for disabled disconnected export state, mocked on-chain audit summary, copy JSON, download JSON, safe filename, forbidden-field exclusion, and candidate sum equaling `totalVotes`.
+- `/audit` is available to ADMIN and AUDITOR demo accounts only. It validates imported Results audit JSON, rejects forbidden private-field keys, shows candidate tallies and check status, and can compare against current localhost contract reads without contract writes.
+- Headless Chrome smoke test passed for auditor `/audit` access, voter denial, admin `/audit` access, valid audit JSON validation, malformed JSON parse errors, forbidden private-field rejection, and mocked live comparison.
+- Headless Chrome smoke test passed for copying a mocked on-chain Results audit export from `/results` and validating that exact JSON in `/audit`.

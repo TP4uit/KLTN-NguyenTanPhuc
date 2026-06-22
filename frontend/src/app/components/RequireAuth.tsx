@@ -10,7 +10,8 @@ type RequireAuthProps = {
 };
 
 type RequireRoleProps = RequireAuthProps & {
-  role: UserRole;
+  role?: UserRole;
+  roles?: UserRole[];
 };
 
 function AuthGuardLoading() {
@@ -23,8 +24,9 @@ function AuthGuardLoading() {
   );
 }
 
-function AccessDenied({ requiredRole }: { requiredRole: UserRole }) {
+function AccessDenied({ requiredRoles }: { requiredRoles: UserRole[] }) {
   const { role, user } = useAuth();
+  const requiredRoleLabel = requiredRoles.join(" or ");
 
   return (
     <div className="min-h-screen bg-slate-50 px-4 py-10 font-sans text-slate-900 sm:px-6 lg:px-8">
@@ -34,10 +36,10 @@ function AccessDenied({ requiredRole }: { requiredRole: UserRole }) {
             <ShieldAlert className="h-6 w-6" />
           </div>
           <p className="mb-3 text-sm font-semibold uppercase tracking-wide text-amber-700">Access denied</p>
-          <h1 className="text-3xl font-bold tracking-tight text-slate-950">Admin access is required.</h1>
+          <h1 className="text-3xl font-bold tracking-tight text-slate-950">Role access is required.</h1>
           <p className="mt-4 text-base leading-7 text-slate-600">
             {user?.fullName ?? "This demo account"} is signed in with the {role ?? "UNKNOWN"} role. This page requires
-            the {requiredRole} role.
+            the {requiredRoleLabel} role.
           </p>
           <div className="mt-6 flex flex-col gap-3 sm:flex-row">
             <Link
@@ -50,7 +52,7 @@ function AccessDenied({ requiredRole }: { requiredRole: UserRole }) {
               to="/login"
               className="inline-flex h-10 items-center justify-center rounded-md border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
             >
-              Sign in as admin
+              Sign in with another role
             </Link>
           </div>
         </section>
@@ -83,9 +85,10 @@ export function RequireAuth({ children, message = "Please sign in to continue." 
   return <>{children}</>;
 }
 
-export function RequireRole({ children, role, message = "Please sign in to continue." }: RequireRoleProps) {
+export function RequireRole({ children, role, roles, message = "Please sign in to continue." }: RequireRoleProps) {
   const { isAuthenticated, isInitialized, role: currentRole } = useAuth();
   const location = useLocation();
+  const allowedRoles = roles ?? (role ? [role] : []);
 
   if (!isInitialized) {
     return <AuthGuardLoading />;
@@ -104,8 +107,8 @@ export function RequireRole({ children, role, message = "Please sign in to conti
     );
   }
 
-  if (currentRole !== role) {
-    return <AccessDenied requiredRole={role} />;
+  if (!currentRole || !allowedRoles.includes(currentRole)) {
+    return <AccessDenied requiredRoles={allowedRoles} />;
   }
 
   return <>{children}</>;

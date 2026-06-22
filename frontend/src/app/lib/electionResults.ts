@@ -53,9 +53,68 @@ export type ResultsAuditValidation = {
   warnings: string[];
 };
 
+const FORBIDDEN_AUDIT_KEYS = [
+  "identitySecret",
+  "password",
+  "voteChoice",
+  "candidateChoice",
+  "proof",
+  "nullifier",
+  "privateKey",
+  "privateWalletData",
+  "walletPrivateData",
+  "walletAddress",
+  "txHash",
+  "transactionHash",
+];
+
 type BlockProvider = {
   getBlockNumber(): Promise<number>;
 };
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function hasString(value: Record<string, unknown>, key: string) {
+  return typeof value[key] === "string" && value[key].trim().length > 0;
+}
+
+function hasNumber(value: Record<string, unknown>, key: string) {
+  return typeof value[key] === "number" && Number.isFinite(value[key]);
+}
+
+function hasNonNegativeInteger(value: Record<string, unknown>, key: string) {
+  return Number.isInteger(value[key]) && Number(value[key]) >= 0;
+}
+
+function hasNullableNonNegativeInteger(value: Record<string, unknown>, key: string) {
+  return value[key] === null || hasNonNegativeInteger(value, key);
+}
+
+function hasNullableNumber(value: Record<string, unknown>, key: string) {
+  return value[key] === null || hasNumber(value, key);
+}
+
+function collectForbiddenAuditKeys(value: unknown, path = "$"): string[] {
+  if (Array.isArray(value)) {
+    return value.flatMap((item, index) => collectForbiddenAuditKeys(item, `${path}[${index}]`));
+  }
+
+  if (!isRecord(value)) {
+    return [];
+  }
+
+  return Object.entries(value).flatMap(([key, nestedValue]) => {
+    const keyIsForbidden = FORBIDDEN_AUDIT_KEYS.some((forbiddenKey) =>
+      key.toLowerCase().includes(forbiddenKey.toLowerCase()),
+    );
+    const currentPath = `${path}.${key}`;
+    const nestedMatches = collectForbiddenAuditKeys(nestedValue, currentPath);
+
+    return keyIsForbidden ? [currentPath, ...nestedMatches] : nestedMatches;
+  });
+}
 
 function voteCountToNumber(value: unknown) {
   if (typeof value === "bigint") {
@@ -173,8 +232,69 @@ export function buildResultsAuditSnapshot(
   };
 }
 
-export function validateResultsAuditSnapshot(snapshot: ResultsAuditSnapshot): ResultsAuditValidation {
+function isResultsAuditCandidateTally(value: unknown): value is ResultsAuditCandidateTally {
+  return (
+    isRecord(value) &&
+    hasNonNegativeInteger(value, "candidateId") &&
+    hasString(value, "name") &&
+    hasNonNegativeInteger(value, "votes") &&
+    hasNumber(value, "sharePercent")
+  );
+}
+
+export function isResultsAuditSnapshot(value: unknown): value is ResultsAuditSnapshot {
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  if (
+    !hasString(value, "electionId") ||
+    !hasString(value, "network") ||
+    !hasString(value, "chainId") ||
+    !hasString(value, "contractAddress") ||
+    !hasString(value, "generatedAt") ||
+    !hasString(value, "loadedAt") ||
+    value.source !== "on-chain" ||
+    !hasNonNegativeInteger(value, "electionState") ||
+    !hasString(value, "electionStateName") ||
+    !hasNonNegativeInteger(value, "latestBlock") ||
+    !hasNonNegativeInteger(value, "totalVotes") ||
+    !hasNullableNonNegativeInteger(value, "localApprovedVoters") ||
+    !hasNullableNumber(value, "localDemoTurnout") ||
+    !Array.isArray(value.candidateTallies) ||
+    !isRecord(value.checks) ||
+    !Array.isArray(value.warnings)
+  ) {
+    return false;
+  }
+
+  return (
+    value.candidateTallies.every(isResultsAuditCandidateTally) &&
+    typeof value.checks.totalMatchesCandidateSum === "boolean" &&
+    typeof value.checks.hasOnChainSource === "boolean" &&
+    typeof value.checks.hasLiveLifecycle === "boolean" &&
+    value.warnings.every((warning) => typeof warning === "string")
+  );
+}
+
+export function validateResultsAuditSnapshot(snapshot: unknown): ResultsAuditValidation {
   const errors: string[] = [];
+  const forbiddenKeys = collectForbiddenAuditKeys(snapshot);
+
+  if (forbiddenKeys.length > 0) {
+    errors.push(`Audit JSON contains forbidden private fields: ${forbiddenKeys.join(", ")}.`);
+  }
+
+  if (!isResultsAuditSnapshot(snapshot)) {
+    errors.push("Audit JSON is missing required results audit fields or has invalid field types.");
+
+    return {
+      isValid: false,
+      errors,
+      warnings: [],
+    };
+  }
+
   const warnings = [...snapshot.warnings];
   const candidateSum = snapshot.candidateTallies.reduce((sum, candidate) => sum + candidate.votes, 0);
 

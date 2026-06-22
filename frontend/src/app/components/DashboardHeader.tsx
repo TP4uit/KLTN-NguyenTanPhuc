@@ -54,6 +54,11 @@ export function DashboardHeader() {
             <Link to="/admin" className={navLinkClass("/admin", location.pathname)}>
               Admin
             </Link>
+            {isAuthenticated && (role === "ADMIN" || role === "AUDITOR") && (
+              <Link to="/audit" className={navLinkClass("/audit", location.pathname)}>
+                Audit
+              </Link>
+            )}
             {isAuthenticated && (
               <Link to="/account" className={navLinkClass("/account", location.pathname)}>
                 Account

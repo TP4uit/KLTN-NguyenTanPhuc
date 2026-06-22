@@ -3,6 +3,7 @@ import { Home } from "./pages/Home";
 import { Dashboard } from "./pages/Dashboard";
 import { Results } from "./pages/Results";
 import { Admin } from "./pages/Admin";
+import { Audit } from "./pages/Audit";
 import { Login } from "./pages/Login";
 import { Register } from "./pages/Register";
 import { Account } from "./pages/Account";
@@ -37,6 +38,14 @@ export const router = createBrowserRouter([
         element: (
           <RequireRole role="ADMIN" message="Sign in with an admin demo account to open admin controls.">
             <Admin />
+          </RequireRole>
+        ),
+      },
+      {
+        path: "audit",
+        element: (
+          <RequireRole roles={["ADMIN", "AUDITOR"]} message="Sign in with an auditor or admin demo account to verify audit exports.">
+            <Audit />
           </RequireRole>
         ),
       },
