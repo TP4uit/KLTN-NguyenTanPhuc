@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth } from "./authContext";
 import { getLocalRegistryFixtureIdentity } from "./browserProof";
-import { deriveDemoIdentityCommitment, generateDemoIdentitySecret } from "./demoIdentity";
+import { generateDemoIdentitySecret } from "./demoIdentity";
 import {
   createPendingRegistration,
   currentElectionId,
@@ -9,7 +9,9 @@ import {
   getRegistrationForCurrentUser,
   saveIdentitySecret,
 } from "./localVoterRegistration";
+import { derivePoseidonIdentityCommitment } from "./poseidonIdentity";
 import type {
+  CommitmentScheme,
   LocalIdentitySecret,
   VoterRegistration,
   VoterRegistrationStatus,
@@ -86,12 +88,14 @@ export function useVoterRegistration(electionId = currentElectionId): UseVoterRe
       const secret = usesLocalFixture ? fixtureIdentity.selectedVoterSecret : generateDemoIdentitySecret();
       const identityCommitment = usesLocalFixture
         ? fixtureIdentity.selectedIdentityCommitment
-        : await deriveDemoIdentityCommitment(secret, normalizedElectionId, user.id);
+        : await derivePoseidonIdentityCommitment(secret);
+      const commitmentScheme: CommitmentScheme = usesLocalFixture ? "FIXTURE_POSEIDON" : "POSEIDON";
       const nextIdentitySecret = saveIdentitySecret(user.id, normalizedElectionId, secret);
       const nextRegistration = createPendingRegistration({
         userId: user.id,
         electionId: normalizedElectionId,
         identityCommitment,
+        commitmentScheme,
       });
 
       setIdentitySecret(nextIdentitySecret);

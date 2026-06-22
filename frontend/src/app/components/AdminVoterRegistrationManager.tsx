@@ -15,11 +15,12 @@ import {
   approveRegistration,
   buildRegistrationEvidence,
   currentElectionId,
+  getRegistrationCommitmentScheme,
   listRegistrations,
   rejectRegistration,
 } from "../lib/localVoterRegistration";
 import type { DemoUser } from "../lib/authModel";
-import type { VoterRegistration, VoterRegistrationStatus } from "../lib/voterRegistrationModel";
+import type { CommitmentScheme, VoterRegistration, VoterRegistrationStatus } from "../lib/voterRegistrationModel";
 
 type ReviewStatus = "idle" | "success" | "error";
 type EvidenceActionStatus = "idle" | "success" | "error";
@@ -57,6 +58,18 @@ function statusBadgeClass(status: VoterRegistrationStatus) {
   }
 
   return "border-slate-200 bg-slate-50 text-slate-700";
+}
+
+function formatCommitmentScheme(scheme: CommitmentScheme) {
+  if (scheme === "FIXTURE_POSEIDON") {
+    return "Fixture Poseidon";
+  }
+
+  if (scheme === "POSEIDON") {
+    return "Poseidon";
+  }
+
+  return "SHA-256 demo";
 }
 
 function getErrorMessage(error: unknown, fallbackMessage: string) {
@@ -223,6 +236,9 @@ export function AdminVoterRegistrationManager() {
             Admins can review account registration and identity commitments only. Secret keys, vote choices,
             candidate choices, proofs, nullifiers, and transaction hashes are not shown or stored here.
           </p>
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
+            New demo registrations now use Poseidon commitments suitable for a future dynamic ZK registry, but they still cannot vote with the current static proof fixture until a matching Merkle path/proof input is generated.
+          </p>
         </div>
 
         <button
@@ -281,6 +297,7 @@ export function AdminVoterRegistrationManager() {
               <tr>
                 <th className="px-4 py-3">Voter</th>
                 <th className="px-4 py-3">Status</th>
+                <th className="px-4 py-3">Scheme</th>
                 <th className="px-4 py-3">Identity commitment</th>
                 <th className="px-4 py-3">Submitted</th>
                 <th className="px-4 py-3">Review</th>
@@ -303,6 +320,11 @@ export function AdminVoterRegistrationManager() {
                     <td className="px-4 py-4">
                       <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${statusBadgeClass(registration.status)}`}>
                         {registration.status}
+                      </span>
+                    </td>
+                    <td className="px-4 py-4">
+                      <span className="text-sm font-semibold text-slate-700">
+                        {formatCommitmentScheme(getRegistrationCommitmentScheme(registration))}
                       </span>
                     </td>
                     <td className="px-4 py-4">
@@ -454,6 +476,7 @@ export function AdminVoterRegistrationManager() {
             <thead className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
               <tr>
                 <th className="px-4 py-3">Registration</th>
+                <th className="px-4 py-3">Scheme</th>
                 <th className="px-4 py-3">Approved identity commitment</th>
                 <th className="px-4 py-3">Reviewed</th>
               </tr>
@@ -463,6 +486,9 @@ export function AdminVoterRegistrationManager() {
                 <tr key={commitment.registrationId}>
                   <td className="px-4 py-4 font-mono text-xs text-slate-600">
                     {commitment.registrationId}
+                  </td>
+                  <td className="px-4 py-4 text-sm font-semibold text-slate-700">
+                    {formatCommitmentScheme(commitment.commitmentScheme)}
                   </td>
                   <td className="px-4 py-4">
                     <span className="font-mono text-xs text-slate-900" title={commitment.identityCommitment}>

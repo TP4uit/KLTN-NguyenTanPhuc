@@ -1,4 +1,5 @@
 export type VoterRegistrationStatus = "NOT_REGISTERED" | "PENDING" | "APPROVED" | "REJECTED";
+export type CommitmentScheme = "POSEIDON" | "SHA256_DEMO" | "FIXTURE_POSEIDON";
 
 export type VoterRegistration = {
   id: string;
@@ -6,6 +7,7 @@ export type VoterRegistration = {
   electionId: string;
   status: VoterRegistrationStatus;
   identityCommitment: string;
+  commitmentScheme?: CommitmentScheme;
   createdAt: string;
   reviewedAt?: string;
   reviewedBy?: string;
@@ -22,12 +24,14 @@ export type LocalIdentitySecret = {
 export type CreatePendingRegistrationInput = {
   userId: string;
   identityCommitment: string;
+  commitmentScheme: CommitmentScheme;
   electionId?: string;
 };
 
 export type ApprovedCommitmentEvidence = {
   registrationId: string;
   identityCommitment: string;
+  commitmentScheme: CommitmentScheme;
   approvedAt: string;
   reviewedAt: string;
 };

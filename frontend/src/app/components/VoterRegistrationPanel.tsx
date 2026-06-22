@@ -1,8 +1,8 @@
 import { AlertCircle, CheckCircle2, Clock3, Fingerprint, Loader2, RefreshCw, ShieldAlert } from "lucide-react";
-import { currentElectionId } from "../lib/localVoterRegistration";
+import { currentElectionId, getRegistrationCommitmentScheme } from "../lib/localVoterRegistration";
 import { getRegistrationProofCompatibility } from "../lib/registrationProofCompatibility";
 import { useVoterRegistration, type UseVoterRegistrationResult } from "../lib/useVoterRegistration";
-import type { VoterRegistrationStatus } from "../lib/voterRegistrationModel";
+import type { CommitmentScheme, VoterRegistrationStatus } from "../lib/voterRegistrationModel";
 
 function statusBadgeClass(status: VoterRegistrationStatus) {
   if (status === "APPROVED") {
@@ -44,6 +44,18 @@ function formatCommitment(value: string) {
   return `${value.slice(0, 14)}...${value.slice(-10)}`;
 }
 
+function formatCommitmentScheme(scheme: CommitmentScheme) {
+  if (scheme === "FIXTURE_POSEIDON") {
+    return "Fixture Poseidon";
+  }
+
+  if (scheme === "POSEIDON") {
+    return "Poseidon";
+  }
+
+  return "SHA-256 demo";
+}
+
 type VoterRegistrationPanelProps = {
   registrationState?: UseVoterRegistrationResult;
 };
@@ -83,7 +95,7 @@ export function VoterRegistrationPanel({ registrationState }: VoterRegistrationP
             Your demo identity secret stays in this browser. Losing it may prevent proof generation in later flows.
           </p>
           <p className="mt-2 text-sm leading-6 text-slate-600">
-            Seeded demo voter uses the local registry fixture. New demo accounts require a future dynamic registry goal before matching proofs can be generated.
+            New demo registrations now use Poseidon commitments suitable for a future dynamic ZK registry, but they still cannot vote with the current static proof fixture until a matching Merkle path/proof input is generated.
           </p>
         </div>
 
@@ -125,6 +137,12 @@ export function VoterRegistrationPanel({ registrationState }: VoterRegistrationP
           <div className="space-y-2">
             <p className="font-semibold text-amber-800">Waiting for admin approval.</p>
             <p>
+              commitmentScheme:{" "}
+              <span className="font-semibold text-slate-900">
+                {formatCommitmentScheme(getRegistrationCommitmentScheme(registration))}
+              </span>
+            </p>
+            <p>
               identityCommitment:{" "}
               <span className="font-mono text-slate-900" title={registration.identityCommitment}>
                 {formatCommitment(registration.identityCommitment)}
@@ -158,6 +176,12 @@ export function VoterRegistrationPanel({ registrationState }: VoterRegistrationP
               </p>
             )}
             <p>
+              commitmentScheme:{" "}
+              <span className="font-semibold text-slate-900">
+                {formatCommitmentScheme(getRegistrationCommitmentScheme(registration))}
+              </span>
+            </p>
+            <p>
               identityCommitment:{" "}
               <span className="font-mono text-slate-900" title={registration.identityCommitment}>
                 {formatCommitment(registration.identityCommitment)}
@@ -169,6 +193,12 @@ export function VoterRegistrationPanel({ registrationState }: VoterRegistrationP
         {status === "REJECTED" && registration && (
           <div className="space-y-2">
             <p className="font-semibold text-red-800">Registration rejected.</p>
+            <p>
+              commitmentScheme:{" "}
+              <span className="font-semibold text-slate-900">
+                {formatCommitmentScheme(getRegistrationCommitmentScheme(registration))}
+              </span>
+            </p>
             <p>{registration.rejectionReason ?? "No rejection reason was provided."}</p>
           </div>
         )}

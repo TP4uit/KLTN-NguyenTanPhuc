@@ -1,6 +1,8 @@
 import { localElection } from "./localElection";
+import registryFixture from "../../contracts/registry.local.json";
 import type {
   ApprovedCommitmentEvidence,
+  CommitmentScheme,
   CreatePendingRegistrationInput,
   LocalIdentitySecret,
   RegistrationEvidence,
@@ -12,6 +14,13 @@ const IDENTITY_SECRETS_KEY = "zkvote.localIdentitySecrets";
 
 export const currentElectionId = localElection.electionId;
 export const VOTER_REGISTRATIONS_CHANGED_EVENT = "zkvote:voterRegistrationsChanged";
+
+type RegistryFixture = {
+  selectedIdentityCommitment: string;
+  selectedElectionId: string;
+};
+
+const localRegistryFixture = registryFixture as RegistryFixture;
 
 function getStorage() {
   if (typeof window === "undefined") {
@@ -66,8 +75,34 @@ function createId(prefix: string) {
   return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
+function normalizeCommitmentScheme(registration: VoterRegistration): CommitmentScheme {
+  if (registration.commitmentScheme) {
+    return registration.commitmentScheme;
+  }
+
+  if (
+    registration.identityCommitment === localRegistryFixture.selectedIdentityCommitment &&
+    registration.electionId === localRegistryFixture.selectedElectionId
+  ) {
+    return "FIXTURE_POSEIDON";
+  }
+
+  return "SHA256_DEMO";
+}
+
+export function getRegistrationCommitmentScheme(registration: VoterRegistration): CommitmentScheme {
+  return normalizeCommitmentScheme(registration);
+}
+
+function normalizeRegistration(registration: VoterRegistration): VoterRegistration {
+  return {
+    ...registration,
+    commitmentScheme: normalizeCommitmentScheme(registration),
+  };
+}
+
 function readRegistrations() {
-  return readJson<VoterRegistration[]>(REGISTRATIONS_KEY, []);
+  return readJson<VoterRegistration[]>(REGISTRATIONS_KEY, []).map(normalizeRegistration);
 }
 
 function writeRegistrations(registrations: VoterRegistration[]) {
@@ -118,6 +153,7 @@ export function createPendingRegistration(input: CreatePendingRegistrationInput)
   const userId = normalizeRequiredText(input.userId, "User ID");
   const electionId = normalizeElectionId(input.electionId);
   const identityCommitment = normalizeRequiredText(input.identityCommitment, "Identity commitment");
+  const commitmentScheme = input.commitmentScheme;
   const registrations = readRegistrations();
 
   if (
@@ -134,6 +170,7 @@ export function createPendingRegistration(input: CreatePendingRegistrationInput)
     electionId,
     status: "PENDING",
     identityCommitment,
+    commitmentScheme,
     createdAt: new Date().toISOString(),
   };
 
@@ -156,6 +193,7 @@ export function getApprovedCommitments(electionId = currentElectionId): Approved
       return {
         registrationId: registration.id,
         identityCommitment: registration.identityCommitment,
+        commitmentScheme: getRegistrationCommitmentScheme(registration),
         approvedAt: reviewedAt,
         reviewedAt,
       };

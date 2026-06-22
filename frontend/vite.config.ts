@@ -28,6 +28,10 @@ export default defineConfig({
     alias: {
       // Alias @ to the src directory
       '@': path.resolve(__dirname, './src'),
+      'circomlibjs-poseidon-wasm': path.resolve(
+        __dirname,
+        './node_modules/circomlibjs/src/poseidon_wasm.js',
+      ),
     },
   },
 

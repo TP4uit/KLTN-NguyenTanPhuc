@@ -3,8 +3,10 @@ import { useState } from "react";
 import { DashboardHeader } from "../components/DashboardHeader";
 import { useAuth } from "../lib/authContext";
 import { localElection } from "../lib/localElection";
+import { getRegistrationCommitmentScheme } from "../lib/localVoterRegistration";
 import { getRegistrationProofCompatibility } from "../lib/registrationProofCompatibility";
 import { useVoterRegistration } from "../lib/useVoterRegistration";
+import type { CommitmentScheme } from "../lib/voterRegistrationModel";
 
 type EthereumProvider = {
   request(args: { method: string; params?: unknown[] | Record<string, unknown> }): Promise<unknown>;
@@ -32,6 +34,18 @@ function formatAddress(address: string) {
 
 function getFriendlyError(error: unknown, fallbackMessage: string) {
   return error instanceof Error && error.message.trim() ? error.message : fallbackMessage;
+}
+
+function formatCommitmentScheme(scheme: CommitmentScheme) {
+  if (scheme === "FIXTURE_POSEIDON") {
+    return "Fixture Poseidon";
+  }
+
+  if (scheme === "POSEIDON") {
+    return "Poseidon";
+  }
+
+  return "SHA-256 demo";
 }
 
 async function readSelectedWalletAccount() {
@@ -213,6 +227,15 @@ export function Account() {
                     Approved locally, but this identity is not in the current static ZK registry fixture yet.
                   </p>
                 )}
+                <p className="mt-2 text-sm text-slate-600">
+                  New demo registrations now use Poseidon commitments suitable for a future dynamic ZK registry, but they still cannot vote with the current static proof fixture until a matching Merkle path/proof input is generated.
+                </p>
+              </div>
+              <div className="sm:col-span-2">
+                <dt className="text-sm font-medium text-slate-500">Commitment scheme</dt>
+                <dd className="mt-1 text-base font-semibold text-slate-950">
+                  {formatCommitmentScheme(getRegistrationCommitmentScheme(voterRegistration.registration))}
+                </dd>
               </div>
               <div className="sm:col-span-2">
                 <dt className="text-sm font-medium text-slate-500">Identity commitment</dt>

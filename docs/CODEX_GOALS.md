@@ -80,3 +80,16 @@ Verification notes:
 - `/audit` is available to ADMIN and AUDITOR demo accounts only. It validates imported Results audit JSON, rejects forbidden private-field keys, shows candidate tallies and check status, and can compare against current localhost contract reads without contract writes.
 - Headless Chrome smoke test passed for auditor `/audit` access, voter denial, admin `/audit` access, valid audit JSON validation, malformed JSON parse errors, forbidden private-field rejection, and mocked live comparison.
 - Headless Chrome smoke test passed for copying a mocked on-chain Results audit export from `/results` and validating that exact JSON in `/audit`.
+
+## Goal 5 - Dynamic Poseidon Registry and Proof Inputs
+
+- [x] Add browser Poseidon identity commitment derivation.
+
+Verification notes:
+
+- New non-fixture demo voter registrations derive identity commitments with browser Poseidon over the local demo secret and are marked `POSEIDON`.
+- The seeded demo voter continues to use the static registry fixture secret and commitment, marked `FIXTURE_POSEIDON`, and remains the only proof fixture-compatible onboarding path.
+- Existing registrations without `commitmentScheme` load safely as `SHA256_DEMO`, unless their commitment matches the static fixture commitment.
+- Registration evidence includes `commitmentScheme` and still excludes secrets, passwords, vote choices, proofs, nullifiers, and transaction hashes.
+- `cd frontend && npm run build` passed.
+- Headless Chrome smoke test passed for fixture voter `FIXTURE_POSEIDON`, new voter `POSEIDON`, missing-scheme `SHA256_DEMO`, evidence scheme/redaction checks, and disabled vote buttons for approved-but-not-fixture-compatible voters.
