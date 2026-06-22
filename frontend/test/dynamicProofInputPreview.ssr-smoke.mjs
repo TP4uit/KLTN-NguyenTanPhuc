@@ -67,6 +67,7 @@ try {
   } = await server.ssrLoadModule("/src/app/lib/dynamicProofInputPreview.ts");
   const { runDynamicBrowserProofCheck } = await server.ssrLoadModule("/src/app/lib/dynamicBrowserProofCheck.ts");
   const { getDynamicVoteReadiness } = await server.ssrLoadModule("/src/app/lib/dynamicVoteReadiness.ts");
+  const { submitDynamicVote } = await server.ssrLoadModule("/src/app/lib/dynamicVoteSubmit.ts");
   const { listRegistrations } = await server.ssrLoadModule("/src/app/lib/localVoterRegistration.ts");
   const { buildRegistryPreview } = await server.ssrLoadModule("/src/app/lib/registryPreview.ts");
 
@@ -153,6 +154,32 @@ try {
     initialRegistryPreview.merkleRootPreview,
     { hasVotedInSession: true },
   );
+  let dynamicSubmitMismatchBlocked = false;
+  let dynamicSubmitMismatchCastVoteCount = 0;
+
+  try {
+    await submitDynamicVote({
+      registration: poseidonRegistration,
+      candidateId: 1,
+      contract: {
+        async castVote() {
+          dynamicSubmitMismatchCastVoteCount += 1;
+          return {
+            hash: "0xshould-not-submit",
+            async wait() {
+              return { hash: "0xshould-not-submit" };
+            },
+          };
+        },
+      },
+      lifecycle: { electionState: 1, electionStateName: "Open" },
+      contractRoot: registryFixture.merkleRoot,
+      hasVotedInSession: false,
+    });
+  } catch (error) {
+    dynamicSubmitMismatchBlocked =
+      error instanceof Error && error.message.includes("Dynamic submit blocked");
+  }
 
   setRegistrations([
     {
@@ -204,6 +231,7 @@ try {
     ["dynamic vote readiness succeeds when contract root matches preview", dynamicReady.isReady],
     ["dynamic vote readiness blocks when contract root mismatches preview", !dynamicRootMismatch.isReady && dynamicRootMismatch.reasons.some((reason) => reason.includes("does not match"))],
     ["dynamic vote readiness blocks after session vote", !dynamicAlreadyVoted.isReady && dynamicAlreadyVoted.reasons.some((reason) => reason.includes("already recorded"))],
+    ["dynamic submit blocks before castVote when root mismatches preview", dynamicSubmitMismatchBlocked && dynamicSubmitMismatchCastVoteCount === 0],
     ["SHA256_DEMO registration is incompatible", shaReadiness.status === "INCOMPATIBLE"],
     ["SHA256_DEMO dynamic proof check is blocked", shaProofCheckBlocked],
     ["missing identity material is path-only", missingMaterialReadiness.status === "PATH_ONLY"],

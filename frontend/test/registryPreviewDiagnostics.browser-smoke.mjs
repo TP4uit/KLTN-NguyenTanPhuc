@@ -620,20 +620,163 @@ try {
   const dynamicSubmitDisabled = await client.evaluate(`
     (() => {
       const button = [...document.querySelectorAll("button")].find((candidate) =>
-        candidate.textContent.includes("Dynamic vote submit not enabled yet")
+        candidate.textContent.includes("Dynamic submit blocked")
       );
       return Boolean(button && button.disabled);
     })()
   `);
 
   if (!dynamicSubmitDisabled) {
-    throw new Error("Dashboard dynamic submit placeholder was not disabled.");
+    throw new Error("Dashboard dynamic submit blocked placeholder was not disabled.");
+  }
+
+  const candidateDynamicButtonsDisabled = await client.evaluate(`
+    (() => {
+      const buttons = [...document.querySelectorAll("button")].filter((button) =>
+        button.textContent.trim() === "Dynamic submit"
+      );
+      const staticVoteButton = [...document.querySelectorAll("button")].find((button) =>
+        button.textContent.trim() === "Vote"
+      );
+      const fixtureFallbackButton = [...document.querySelectorAll("button")].find((button) =>
+        button.textContent.includes("Submit fixture fallback")
+      );
+
+      return {
+        dynamicButtonCount: buttons.length,
+        allDynamicDisabled: buttons.every((button) => button.disabled),
+        staticVoteVisible: Boolean(staticVoteButton),
+        fixtureFallbackVisible: Boolean(fixtureFallbackButton),
+      };
+    })()
+  `);
+
+  if (
+    candidateDynamicButtonsDisabled.dynamicButtonCount === 0 ||
+    !candidateDynamicButtonsDisabled.allDynamicDisabled
+  ) {
+    throw new Error("Dashboard candidate Dynamic submit buttons were not disabled while readiness was blocked.");
+  }
+
+  if (!candidateDynamicButtonsDisabled.staticVoteVisible || !candidateDynamicButtonsDisabled.fixtureFallbackVisible) {
+    throw new Error("Static fixture voting controls were not visible in the Dashboard smoke.");
   }
 
   const dynamicCastVoteCallCount = await client.evaluate("window.__castVoteCallCount");
 
   if ((dynamicCastVoteCallCount ?? 0) !== 0) {
     throw new Error("Dynamic readiness smoke unexpectedly recorded a castVote call.");
+  }
+
+  const dynamicSubmitMismatch = await client.evaluate(`
+    (async () => {
+      const { submitDynamicVote } = await import("/src/app/lib/dynamicVoteSubmit.ts");
+      const { currentElectionId, listRegistrations } = await import("/src/app/lib/localVoterRegistration.ts");
+      const registration = listRegistrations(currentElectionId).find(
+        (candidate) => candidate.id === "registration-dashboard-poseidon"
+      );
+      let castVoteCalls = 0;
+
+      try {
+        await submitDynamicVote({
+          registration,
+          candidateId: 1,
+          contract: {
+            async castVote() {
+              castVoteCalls += 1;
+              return {
+                hash: "0xshould-not-submit",
+                async wait() {
+                  return { hash: "0xshould-not-submit" };
+                },
+              };
+            },
+          },
+          lifecycle: { electionState: 1, electionStateName: "Open" },
+          contractRoot: ${JSON.stringify(registryFixture.merkleRoot)},
+          hasVotedInSession: false,
+        });
+
+        return { blocked: false, castVoteCalls };
+      } catch (error) {
+        return {
+          blocked: error instanceof Error && error.message.includes("Dynamic submit blocked"),
+          castVoteCalls,
+        };
+      }
+    })()
+  `);
+
+  if (!dynamicSubmitMismatch.blocked || dynamicSubmitMismatch.castVoteCalls !== 0) {
+    throw new Error("Dynamic submit helper did not block root mismatch before castVote.");
+  }
+
+  const dynamicSubmitSmoke = await client.evaluate(`
+    (async () => {
+      const { buildRegistryPreview } = await import("/src/app/lib/registryPreview.ts");
+      const { submitDynamicVote } = await import("/src/app/lib/dynamicVoteSubmit.ts");
+      const { currentElectionId, listRegistrations } = await import("/src/app/lib/localVoterRegistration.ts");
+      const preview = await buildRegistryPreview(currentElectionId);
+      const registration = listRegistrations(currentElectionId).find(
+        (candidate) => candidate.id === "registration-dashboard-poseidon"
+      );
+      const castVoteCalls = [];
+      const result = await submitDynamicVote({
+        registration,
+        candidateId: 1,
+        contract: {
+          async castVote(a, b, c, input) {
+            castVoteCalls.push({ a, b, c, input });
+            return {
+              hash: "0xdynamicTx",
+              async wait() {
+                return { hash: "0xdynamicReceipt" };
+              },
+            };
+          },
+        },
+        lifecycle: { electionState: 1, electionStateName: "Open" },
+        contractRoot: preview.merkleRootPreview,
+        hasVotedInSession: false,
+      });
+
+      return {
+        result,
+        castVoteCalls,
+        previewRoot: preview.merkleRootPreview,
+      };
+    })()
+  `);
+  const dynamicSubmitFieldNames = collectJsonFieldNames(dynamicSubmitSmoke.result);
+  const dynamicSubmitForbiddenFieldName = dynamicSubmitFieldNames.find((fieldName) =>
+    fieldName !== "nullifierhash" &&
+    fieldName !== "txhash" &&
+    FORBIDDEN_PRIVATE_FIELD_PARTS.some((forbiddenPart) => fieldName.includes(forbiddenPart)),
+  );
+
+  if (dynamicSubmitForbiddenFieldName) {
+    throw new Error(`Dynamic submit result contains forbidden field name: ${dynamicSubmitForbiddenFieldName}.`);
+  }
+
+  if (JSON.stringify(dynamicSubmitSmoke).includes(dynamicVoterSecret)) {
+    throw new Error("Dynamic submit smoke exposed the raw identity secret.");
+  }
+
+  if (dynamicSubmitSmoke.castVoteCalls.length !== 1) {
+    throw new Error("Dynamic submit smoke did not record exactly one mocked castVote call.");
+  }
+
+  const dynamicSubmitRootMatches =
+    BigInt(dynamicSubmitSmoke.castVoteCalls[0].input[3]).toString() ===
+      BigInt(dynamicSubmitSmoke.previewRoot).toString() &&
+    BigInt(dynamicSubmitSmoke.result.merkleRoot).toString() === BigInt(dynamicSubmitSmoke.previewRoot).toString();
+
+  if (!dynamicSubmitRootMatches) {
+    throw new Error("Dynamic submit calldata public input root did not match the dynamic preview root.");
+  }
+
+  if (dynamicSubmitSmoke.result.txHash !== "0xdynamicReceipt") {
+    throw new Error("Dynamic submit smoke did not return the mocked receipt transaction hash.");
   }
 
   const summary = {
@@ -649,6 +792,9 @@ try {
     dashboardDynamicReadinessVisible: true,
     dashboardDynamicSubmitDisabled: true,
     dynamicCastVoteCallCount: dynamicCastVoteCallCount ?? 0,
+    dynamicSubmitRootMismatchBlocked: true,
+    dynamicSubmitMockedCastVoteCount: dynamicSubmitSmoke.castVoteCalls.length,
+    dynamicSubmitTxHash: dynamicSubmitSmoke.result.txHash,
     runtimeCheckTextVisible: true,
   };
 

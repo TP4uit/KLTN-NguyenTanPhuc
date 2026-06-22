@@ -73,7 +73,7 @@ export async function buildMerkleRootAlignment(contractRoot: string): Promise<Me
 
   if (contractMatchesPreview && !contractMatchesFixture) {
     warnings.push(
-      "The contract root matches the Poseidon preview-only root. Dynamic dev-check proofs can target this root, but Dashboard dynamic submit remains disabled.",
+      "The contract root matches the Poseidon preview-only root. Guarded dynamic submit can use this root only when readiness succeeds; static Dashboard submit still expects the fixture root.",
     );
   }
 
@@ -83,7 +83,7 @@ export async function buildMerkleRootAlignment(contractRoot: string): Promise<Me
 
   if (previewRoot !== fixtureRoot) {
     warnings.push(
-      "Poseidon preview-only root has matching preview paths and dev-check proofs, but dynamic submit is still disabled until a later guarded flow.",
+      "Poseidon preview-only root has matching preview paths and dev-check proofs. It is separate from the recommended static proof fixture root.",
     );
   }
 
@@ -146,7 +146,7 @@ export function classifyOpenElectionReadiness(
       severity: "warning",
       label: "Preview root selected; static Dashboard submit not ready",
       warnings: [
-        "The contract root matches the Poseidon preview-only root. Static Dashboard submit still expects the fixture root; dynamic submit is disabled until a later guarded flow.",
+        "The contract root matches the Poseidon preview-only root. Static Dashboard submit still expects the fixture root; guarded dynamic submit requires readiness to succeed before it can be used.",
       ],
     };
   }
@@ -183,13 +183,13 @@ export function classifyMerkleRootInput(
     return {
       kind: "PREVIEW",
       label: "Poseidon preview-only root",
-      warning: "Static Dashboard submit expects the fixture root. Dynamic dev-check proofs can target the preview root, but dynamic submit remains disabled.",
+      warning: "Static Dashboard submit expects the fixture root. Guarded dynamic submit can target the preview root only when readiness succeeds.",
     };
   }
 
   return {
     kind: "CUSTOM",
     label: "Custom root",
-    warning: "Dashboard submit may fail because the static path expects the fixture root and dynamic submit is disabled.",
+    warning: "Dashboard submit may fail because the static path expects the fixture root and guarded dynamic submit expects the Poseidon preview root.",
   };
 }

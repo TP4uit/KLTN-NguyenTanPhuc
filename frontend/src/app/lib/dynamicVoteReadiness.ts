@@ -51,12 +51,12 @@ export function classifyDynamicVoteReadiness(input: {
       isReady: true,
       severity: "success",
       label: "Dynamic submit prerequisites satisfied",
-      reasons: ["Dynamic Poseidon vote submission prerequisites are satisfied, but submit remains disabled."],
+      reasons: ["Dynamic Poseidon vote submission prerequisites are satisfied."],
       contractRoot: input.contractRoot,
       dynamicPreviewRoot: input.dynamicPreviewRoot,
       staticFixtureRoot: input.staticFixtureRoot,
       contractMatchesDynamicPreview: input.contractMatchesDynamicPreview,
-      recommendedAction: "Ready for a later guarded submit goal. Keep using the static fixture submit path today.",
+      recommendedAction: "Use the explicit Dynamic submit button on a candidate card, or keep using the static fixture path.",
     };
   }
 
@@ -74,7 +74,7 @@ export function classifyDynamicVoteReadiness(input: {
     staticFixtureRoot: input.staticFixtureRoot,
     contractMatchesDynamicPreview: input.contractMatchesDynamicPreview,
     recommendedAction: rootOnlyBlock
-      ? "Keep Dashboard on the static fixture path. Dynamic submit can only be enabled after the contract root is intentionally set to the dynamic preview root in a later guarded flow."
+      ? "Keep Dashboard on the static fixture path. Dynamic submit is available only when the contract root intentionally matches the dynamic preview root."
       : "Resolve the blocked prerequisites first. Dynamic submit remains disabled.",
   };
 }

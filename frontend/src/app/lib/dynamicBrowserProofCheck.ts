@@ -3,6 +3,7 @@ import {
   type BrowserVoteProofInput,
   type MerklePathElements,
   type MerklePathIndices,
+  type SolidityVoteCalldata,
 } from "./browserProof";
 import { buildDynamicProofInputPreview } from "./dynamicProofInputPreview";
 import { currentElectionId, getIdentitySecret, listRegistrations } from "./localVoterRegistration";
@@ -14,6 +15,7 @@ export type DynamicBrowserProofCheckResult = {
   merkleRootPreview: string;
   nullifierHash: string;
   publicSignals: string[];
+  calldata: SolidityVoteCalldata;
   calldataInput: string[];
   timingMs: number;
   warnings: string[];
@@ -95,12 +97,13 @@ export async function runDynamicBrowserProofCheck(
     merkleRootPreview: preview.merkleRootPreview,
     nullifierHash: preview.nullifierHashPreview,
     publicSignals: proofResult.publicSignals,
+    calldata: proofResult.calldata,
     calldataInput: proofResult.calldata.input,
     timingMs: proofResult.timingMs,
     warnings: [
       ...preview.warnings,
       "Dynamic browser proof generated for dev check only. It is not submitted to the contract.",
-      "Dashboard submission still uses the static fixture proof path.",
+      "Dashboard submission uses this calldata only through the explicit guarded dynamic submit action.",
     ],
   };
 }

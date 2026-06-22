@@ -100,8 +100,8 @@ function buildPathFromLevels(levels: string[][], leafIndex: number) {
 
 function previewOnlyWarnings() {
   return [
-    "Dynamic artifact preview only. Dashboard submission still uses the static fixture path.",
-    "The preview root should not be used as the contract root until dynamic browser generation is wired safely.",
+    "Dynamic artifact preview only. Static fixture submission remains separate.",
+    "The preview root should be used for dynamic submit only when readiness confirms the live contract root matches it.",
   ];
 }
 

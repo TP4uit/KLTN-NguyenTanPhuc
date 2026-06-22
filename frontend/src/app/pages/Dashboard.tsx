@@ -22,12 +22,14 @@ import {
   getDynamicVoteReadiness,
   type DynamicVoteReadiness,
 } from "../lib/dynamicVoteReadiness";
+import { submitDynamicVote, type DynamicVoteContract } from "../lib/dynamicVoteSubmit";
 import { getRegistrationCommitmentScheme } from "../lib/localVoterRegistration";
 import { getRegistrationProofCompatibility } from "../lib/registrationProofCompatibility";
 import { useVoterRegistration } from "../lib/useVoterRegistration";
 
 type VoteStatus = "disconnected" | "connected" | "generating" | "submitting" | "success" | "error";
 type BrowserProofStatus = "idle" | "generating" | "success" | "error";
+type SubmitMode = "browser" | "fixture" | "dynamic";
 
 export function Dashboard() {
   const [votedFor, setVotedFor] = useState<string | null>(null);
@@ -45,6 +47,7 @@ export function Dashboard() {
   } | null>(null);
   const [lastProofMs, setLastProofMs] = useState<number | null>(null);
   const [lastTxHash, setLastTxHash] = useState<string | null>(null);
+  const [lastSubmitMode, setLastSubmitMode] = useState<SubmitMode | null>(null);
   const [electionLifecycle, setElectionLifecycle] = useState<ElectionLifecycle>(
     getMetadataElectionLifecycle(),
   );
@@ -66,6 +69,8 @@ export function Dashboard() {
   const hasVotedAny = votedFor !== null;
   const canSubmitVote =
     isRegistrationApproved && isProofFixtureCompatible && isElectionOpen && !isWorking && !hasVotedAny;
+  const canSubmitDynamicVote =
+    Boolean(dynamicReadiness?.isReady) && isRegistrationApproved && isElectionOpen && !isWorking && !hasVotedAny;
   const incompatibleApprovedMessage =
     "This account is approved locally, but its identity is not in the current static ZK registry fixture yet.";
 
@@ -201,6 +206,7 @@ export function Dashboard() {
     setErrorMessage(null);
     setLastProofMs(null);
     setLastTxHash(null);
+    setLastSubmitMode(null);
 
     if (!isRegistrationApproved) {
       setStatus("error");
@@ -240,6 +246,7 @@ export function Dashboard() {
 
       setVotedFor(id);
       setLastTxHash(receipt?.hash ?? tx.hash);
+      setLastSubmitMode("browser");
       setStatus("success");
     } catch (error) {
       setStatus("error");
@@ -259,6 +266,7 @@ export function Dashboard() {
     setErrorMessage(null);
     setLastProofMs(null);
     setLastTxHash(null);
+    setLastSubmitMode(null);
 
     if (!isRegistrationApproved) {
       setStatus("error");
@@ -293,10 +301,88 @@ export function Dashboard() {
 
       setVotedFor(fixtureCandidate.id);
       setLastTxHash(receipt?.hash ?? tx.hash);
+      setLastSubmitMode("fixture");
       setStatus("success");
     } catch (error) {
       setStatus("error");
       setErrorMessage(error instanceof Error ? error.message : "Fixture vote transaction failed.");
+    }
+  };
+
+  const handleDynamicVote = async (id: string, candidateId: number) => {
+    setErrorMessage(null);
+    setLastProofMs(null);
+    setLastTxHash(null);
+    setLastSubmitMode(null);
+
+    if (!voterRegistration.registration) {
+      setStatus("error");
+      setErrorMessage(registrationGateMessage);
+      return;
+    }
+
+    if (!isRegistrationApproved) {
+      setStatus("error");
+      setErrorMessage(registrationGateMessage);
+      return;
+    }
+
+    if (!isElectionOpen) {
+      setStatus("error");
+      setErrorMessage(lifecycleGateMessage ?? "Election is not open yet.");
+      return;
+    }
+
+    if (dynamicReadiness && !dynamicReadiness.isReady) {
+      setStatus("error");
+      setErrorMessage(`Dynamic submit blocked: ${dynamicReadiness.reasons.join(" ")}`);
+      return;
+    }
+
+    try {
+      setStatus("generating");
+      const connection = await connectLocalElection();
+      setAccount(connection.account);
+
+      const readState = await readLiveElectionReadState(connection.contract);
+      const freshLifecycle: ElectionLifecycle = {
+        electionState: readState.electionState,
+        electionStateName: readState.electionStateName,
+      };
+      setElectionLifecycle(freshLifecycle);
+      setContractRoot(readState.merkleRoot);
+      setIsLiveLifecycle(true);
+
+      const refreshedReadiness = await getDynamicVoteReadiness(
+        voterRegistration.registration,
+        freshLifecycle,
+        readState.merkleRoot,
+        { hasVotedInSession: hasVotedAny },
+      );
+      setDynamicReadiness(refreshedReadiness);
+
+      if (!refreshedReadiness.isReady) {
+        throw new Error(`Dynamic submit blocked: ${refreshedReadiness.reasons.join(" ")}`);
+      }
+
+      setStatus("submitting");
+      const result = await submitDynamicVote({
+        registration: voterRegistration.registration,
+        candidateId,
+        contract: connection.contract as unknown as DynamicVoteContract,
+        lifecycle: freshLifecycle,
+        contractRoot: readState.merkleRoot,
+        hasVotedInSession: hasVotedAny,
+      });
+
+      setVotedFor(id);
+      setLastProofMs(result.timingMs);
+      setLastTxHash(result.txHash);
+      setLastSubmitMode("dynamic");
+      setStatus("success");
+    } catch (error) {
+      setStatus("error");
+      setErrorMessage(error instanceof Error ? error.message : "Dynamic proof generation or vote transaction failed.");
     }
   };
 
@@ -376,7 +462,10 @@ export function Dashboard() {
                 {status === "connected" && "Connected. Ready to generate a browser proof and submit your vote."}
                 {status === "generating" && "Generating proof in the browser..."}
                 {status === "submitting" && "Submitting castVote(a, b, c, input) in MetaMask."}
-                {status === "success" && `Vote recorded${lastProofMs === null ? "" : ` after ${lastProofMs}ms proof generation`}${lastTxHash ? `: ${lastTxHash.slice(0, 10)}...${lastTxHash.slice(-8)}` : "."}`}
+                {status === "success" && lastSubmitMode === "dynamic" &&
+                  `Dynamic proof generated and submitted with preview root${lastProofMs === null ? "" : ` after ${lastProofMs}ms`}${lastTxHash ? `: ${lastTxHash.slice(0, 10)}...${lastTxHash.slice(-8)}` : "."}`}
+                {status === "success" && lastSubmitMode !== "dynamic" &&
+                  `Vote recorded${lastProofMs === null ? "" : ` after ${lastProofMs}ms proof generation`}${lastTxHash ? `: ${lastTxHash.slice(0, 10)}...${lastTxHash.slice(-8)}` : "."}`}
                 {status === "error" && (errorMessage ?? "Something went wrong.")}
               </span>
             </div>
@@ -439,8 +528,11 @@ export function Dashboard() {
             <div className="max-w-4xl">
               <h2 className="text-lg font-bold text-slate-900">Dynamic Vote Readiness</h2>
               <p className="mt-2 text-sm text-slate-600">
-                This checks whether dynamic Poseidon vote submission would be safe to enable later. It does not change
-                the current fixture-gated Dashboard submit path.
+                This checks whether explicit dynamic Poseidon vote submission is available. Static fixture submit
+                remains separate and unchanged.
+              </p>
+              <p className="mt-2 text-xs font-medium text-amber-700">
+                Dynamic submit uses the Poseidon preview root and only works when the contract root matches it.
               </p>
             </div>
             <span
@@ -528,11 +620,11 @@ export function Dashboard() {
               disabled
               className="inline-flex cursor-not-allowed items-center justify-center gap-2 rounded-xl bg-slate-100 px-4 py-2.5 text-sm font-semibold text-slate-400"
             >
-              Dynamic vote submit not enabled yet
+              {dynamicReadiness?.isReady ? "Dynamic submit available on candidate cards" : "Dynamic submit blocked"}
             </button>
             {dynamicReadiness?.isReady && (
               <span className="text-sm font-medium text-emerald-700">
-                Ready for a later guarded submit goal.
+                Contract root matches the dynamic Poseidon preview root.
               </span>
             )}
           </div>
@@ -588,6 +680,20 @@ export function Dashboard() {
                   aria-label={`Vote for ${candidate.name}`}
                 >
                   {isVoted ? 'Vote Recorded' : 'Vote'}
+                </button>
+                <button
+                  onClick={() => handleDynamicVote(candidate.id, candidate.candidateId)}
+                  disabled={!canSubmitDynamicVote}
+                  className={`mt-3 w-full rounded-xl border px-4 py-2.5 text-sm font-semibold transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 ${
+                    isVoted
+                      ? "border-emerald-200 bg-emerald-50 text-emerald-700 cursor-default"
+                      : !canSubmitDynamicVote
+                        ? "border-slate-200 bg-slate-100 text-slate-400 cursor-not-allowed"
+                        : "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 focus:ring-emerald-500"
+                  }`}
+                  aria-label={`Dynamic submit for ${candidate.name}`}
+                >
+                  {isVoted ? "Dynamic Recorded" : "Dynamic submit"}
                 </button>
               </div>
             );
