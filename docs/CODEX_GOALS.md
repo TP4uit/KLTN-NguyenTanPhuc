@@ -85,6 +85,7 @@ Verification notes:
 
 - [x] Add browser Poseidon identity commitment derivation.
 - [x] Convert registry preview to Poseidon tree over approved commitments.
+- [x] Harden browser runtime verification for Poseidon registry preview.
 
 Verification notes:
 
@@ -96,6 +97,8 @@ Verification notes:
 - Approved `SHA256_DEMO` registrations are excluded from Poseidon preview leaves and reported as incompatible with a reason.
 - Preview JSON includes hash function, leaf formula, compatible/incompatible counts, compatible leaves, incompatible leaves, levels, and warnings only; it excludes secrets, passwords, vote choices, proofs, nullifiers, and transaction hashes.
 - Merkle Root Alignment still recommends the static proof fixture root because `browserProof.ts` continues to use `registry.local.json`; the Poseidon preview-only root remains unsafe for the contract root until dynamic Merkle paths/proof inputs are generated.
+- Admin Registry Preview includes a browser runtime diagnostic action that rebuilds the Poseidon preview, checks tree levels, root shape, scheme filtering, `SHA256_DEMO` incompatibility reporting, and private-field redaction.
 - `cd frontend && npm run build` passed.
-- Vite SSR smoke test passed for seeded `FIXTURE_POSEIDON`, new `POSEIDON`, missing-scheme `SHA256_DEMO` exclusion, compatible/incompatible counts, direct identity-commitment leaf level, zero padding, warning text, and redacted preview JSON field names.
-- Headless Chrome smoke test passed for fixture voter `FIXTURE_POSEIDON`, new voter `POSEIDON`, missing-scheme `SHA256_DEMO`, evidence scheme/redaction checks, and disabled vote buttons for approved-but-not-fixture-compatible voters.
+- Vite SSR smoke test `node test/registryPreviewDiagnostics.ssr-smoke.mjs` passed for seeded `FIXTURE_POSEIDON`, new `POSEIDON`, missing-scheme `SHA256_DEMO` exclusion, compatible/incompatible counts, direct identity-commitment leaf level, zero padding, warning text, and redacted preview JSON field names.
+- Browser smoke `node test/registryPreviewDiagnostics.browser-smoke.mjs` passed in local Chrome for admin login, `/admin` Registry Preview render, refresh action, runtime check pass result, copy/download JSON actions, and copied JSON private-field redaction.
+- Earlier Goal 5.1 Headless Chrome smoke test passed for fixture voter `FIXTURE_POSEIDON`, new voter `POSEIDON`, missing-scheme `SHA256_DEMO`, evidence scheme/redaction checks, and disabled vote buttons for approved-but-not-fixture-compatible voters.

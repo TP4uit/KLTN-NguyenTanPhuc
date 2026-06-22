@@ -18,11 +18,17 @@ import {
   downloadJson,
   type RegistryPreview,
 } from "../lib/registryPreview";
+import {
+  runRegistryPreviewDiagnostics,
+  type RegistryPreviewDiagnostics,
+} from "../lib/registryPreviewDiagnostics";
 
 type PreviewStatus = "idle" | "loading" | "success" | "error";
+type DiagnosticStatus = "idle" | "loading" | "passed" | "failed";
 
 const POSEIDON_WARNING =
   "This Poseidon preview root is generated from approved local Poseidon commitments only. It must not be used as the contract root until Goal 5.3 creates matching Merkle paths/proof inputs.";
+const POSEIDON_RUNTIME_ERROR = "Poseidon registry preview failed to load in browser runtime.";
 
 function formatLongValue(value: string) {
   if (value.length <= 28) {
@@ -44,7 +50,11 @@ export function AdminRegistryPreview() {
   const [preview, setPreview] = useState<RegistryPreview | null>(null);
   const [status, setStatus] = useState<PreviewStatus>("idle");
   const [message, setMessage] = useState<string | null>(null);
+  const [diagnosticStatus, setDiagnosticStatus] = useState<DiagnosticStatus>("idle");
+  const [diagnostics, setDiagnostics] = useState<RegistryPreviewDiagnostics | null>(null);
+  const [diagnosticMessage, setDiagnosticMessage] = useState<string | null>(null);
   const isLoading = status === "loading";
+  const isDiagnosticLoading = diagnosticStatus === "loading";
   const previewJson = useMemo(() => (preview ? JSON.stringify(preview, null, 2) : ""), [preview]);
 
   const refreshPreview = useCallback(async (successMessage?: string) => {
@@ -58,7 +68,7 @@ export function AdminRegistryPreview() {
       setMessage(successMessage ?? null);
     } catch (error) {
       setStatus("error");
-      setMessage(getErrorMessage(error, "Unable to build registry preview."));
+      setMessage(`${POSEIDON_RUNTIME_ERROR} ${getErrorMessage(error, "Unable to build registry preview.")}`);
     }
   }, []);
 
@@ -106,6 +116,28 @@ export function AdminRegistryPreview() {
     }
   };
 
+  const handleRunDiagnostics = async () => {
+    setDiagnosticStatus("loading");
+    setDiagnostics(null);
+    setDiagnosticMessage(null);
+
+    try {
+      const nextDiagnostics = await runRegistryPreviewDiagnostics();
+      const failedCheck = nextDiagnostics.checks.find((diagnosticCheck) => !diagnosticCheck.passed);
+
+      setDiagnostics(nextDiagnostics);
+      setDiagnosticStatus(nextDiagnostics.passed ? "passed" : "failed");
+      setDiagnosticMessage(
+        nextDiagnostics.passed
+          ? `Runtime check passed at ${nextDiagnostics.checkedAt}.`
+          : failedCheck?.message ?? "Registry preview runtime check failed.",
+      );
+    } catch (error) {
+      setDiagnosticStatus("failed");
+      setDiagnosticMessage(`${POSEIDON_RUNTIME_ERROR} ${getErrorMessage(error, "Runtime check failed.")}`);
+    }
+  };
+
   return (
     <section className="mb-8 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
       <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
@@ -128,6 +160,14 @@ export function AdminRegistryPreview() {
           >
             {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
             Refresh preview
+          </button>
+          <button
+            onClick={() => void handleRunDiagnostics()}
+            disabled={isLoading || isDiagnosticLoading}
+            className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {isDiagnosticLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+            Run runtime check
           </button>
           <button
             onClick={handleCopyPreview}
@@ -162,6 +202,34 @@ export function AdminRegistryPreview() {
             <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
           )}
           <span>{message}</span>
+        </div>
+      )}
+
+      {diagnosticMessage && (
+        <div
+          className={`mb-6 flex items-start gap-2 rounded-xl border px-4 py-3 text-sm ${
+            diagnosticStatus === "failed"
+              ? "border-red-200 bg-red-50 text-red-700"
+              : "border-emerald-200 bg-emerald-50 text-emerald-700"
+          }`}
+        >
+          {diagnosticStatus === "failed" ? (
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+          ) : (
+            <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
+          )}
+          <div>
+            <div className="font-semibold">
+              {diagnosticStatus === "failed" ? "Runtime check failed" : "Runtime check passed"}
+            </div>
+            <div className="mt-1">{diagnosticMessage}</div>
+            {diagnostics && (
+              <div className="mt-2 text-xs">
+                {diagnostics.checks.filter((diagnosticCheck) => diagnosticCheck.passed).length}/
+                {diagnostics.checks.length} checks passed.
+              </div>
+            )}
+          </div>
         </div>
       )}
 

@@ -25,6 +25,8 @@ type AdminMerkleRootAlignmentProps = {
   onUseFixtureRoot?: (root: string) => void;
 };
 
+const POSEIDON_RUNTIME_ERROR = "Poseidon registry preview failed to load in browser runtime.";
+
 function formatLongValue(value: string) {
   if (value.length <= 28) {
     return value;
@@ -62,7 +64,7 @@ export function AdminMerkleRootAlignment({
       setMessage(successMessage ?? null);
     } catch (error) {
       setStatus("error");
-      setMessage(getErrorMessage(error, "Unable to build Merkle root alignment."));
+      setMessage(`${POSEIDON_RUNTIME_ERROR} ${getErrorMessage(error, "Unable to build Merkle root alignment.")}`);
     }
   }, [contractRoot]);
 

@@ -24,6 +24,8 @@ import {
 
 type AdminStatus = "idle" | "loading" | "pending" | "success" | "error";
 
+const POSEIDON_RUNTIME_ERROR = "Poseidon registry preview failed to load in browser runtime.";
+
 export function Admin() {
   const [account, setAccount] = useState<string | null>(null);
   const [adminState, setAdminState] = useState<ElectionAdminState | null>(null);
@@ -103,7 +105,9 @@ export function Admin() {
       setAlignmentError(null);
     } catch (error) {
       setAlignment(null);
-      setAlignmentError(error instanceof Error ? error.message : "Unable to load Merkle root alignment.");
+      setAlignmentError(
+        `${POSEIDON_RUNTIME_ERROR} ${error instanceof Error ? error.message : "Unable to load Merkle root alignment."}`,
+      );
     }
   }, [lifecycle.merkleRoot]);
 
@@ -125,7 +129,9 @@ export function Admin() {
         }
 
         setAlignment(null);
-        setAlignmentError(error instanceof Error ? error.message : "Unable to load Merkle root alignment.");
+        setAlignmentError(
+          `${POSEIDON_RUNTIME_ERROR} ${error instanceof Error ? error.message : "Unable to load Merkle root alignment."}`,
+        );
       });
 
     return () => {
