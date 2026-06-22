@@ -65,6 +65,7 @@ try {
     buildDynamicProofInputPreview,
     getDynamicProofInputReadiness,
   } = await server.ssrLoadModule("/src/app/lib/dynamicProofInputPreview.ts");
+  const { runDynamicBrowserProofCheck } = await server.ssrLoadModule("/src/app/lib/dynamicBrowserProofCheck.ts");
   const { listRegistrations } = await server.ssrLoadModule("/src/app/lib/localVoterRegistration.ts");
   const { buildRegistryPreview } = await server.ssrLoadModule("/src/app/lib/registryPreview.ts");
 
@@ -120,6 +121,14 @@ try {
     (registration) => registration.id === "registration-old-sha",
   );
   const shaReadiness = await getDynamicProofInputReadiness(shaRegistration);
+  let shaProofCheckBlocked = false;
+
+  try {
+    await runDynamicBrowserProofCheck("registration-old-sha", 1);
+  } catch {
+    shaProofCheckBlocked = true;
+  }
+
   const privateFieldName = collectJsonFieldNames(poseidonInputPreview).find((fieldName) =>
     forbiddenFieldParts.some((forbiddenPart) => fieldName.includes(forbiddenPart)),
   );
@@ -140,6 +149,13 @@ try {
   const missingMaterialRegistration = listRegistrations(currentElectionId)[0];
   const missingMaterialReadiness = await getDynamicProofInputReadiness(missingMaterialRegistration);
   const missingMaterialInputPreview = await buildDynamicProofInputPreview("registration-missing-material", 1);
+  let missingMaterialProofCheckBlocked = false;
+
+  try {
+    await runDynamicBrowserProofCheck("registration-missing-material", 1);
+  } catch {
+    missingMaterialProofCheckBlocked = true;
+  }
 
   const overflowRegistrations = Array.from({ length: 9 }, (_, index) => ({
     id: `registration-overflow-${index}`,
@@ -165,8 +181,10 @@ try {
     ["new POSEIDON registration builds full input preview", poseidonInputPreview.fullInputReady],
     ["new POSEIDON registration has nullifier preview", /^\d+$/.test(poseidonInputPreview.nullifierHashPreview ?? "")],
     ["SHA256_DEMO registration is incompatible", shaReadiness.status === "INCOMPATIBLE"],
+    ["SHA256_DEMO dynamic proof check is blocked", shaProofCheckBlocked],
     ["missing identity material is path-only", missingMaterialReadiness.status === "PATH_ONLY"],
     ["missing identity material omits nullifier preview", !missingMaterialInputPreview.nullifierHashPreview],
+    ["missing identity material blocks dynamic proof check", missingMaterialProofCheckBlocked],
     ["overflow registration is blocked", overflowReadiness.status === "BLOCKED"],
     ["overflow registration cannot build path preview", !overflowReadiness.canBuildMerklePathPreview],
     ["exported JSON field names redact forbidden private fields", !privateFieldName],

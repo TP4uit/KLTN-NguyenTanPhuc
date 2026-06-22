@@ -10,6 +10,10 @@ import {
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { CANDIDATES } from "../lib/candidates";
 import {
+  runDynamicBrowserProofCheck,
+  type DynamicBrowserProofCheckResult,
+} from "../lib/dynamicBrowserProofCheck";
+import {
   buildDynamicProofInputPreview,
   getDynamicProofInputReadiness,
   type DynamicProofInputPreview,
@@ -25,6 +29,7 @@ import { copyTextToClipboard, downloadJson } from "../lib/registryPreview";
 import type { VoterRegistration } from "../lib/voterRegistrationModel";
 
 type PreviewStatus = "idle" | "loading" | "success" | "error";
+type ProofCheckStatus = "idle" | "loading" | "success" | "error";
 
 type RegistrationOption = {
   registration: VoterRegistration;
@@ -77,9 +82,13 @@ export function AdminDynamicProofInputPreview() {
   const [selectedRegistrationId, setSelectedRegistrationId] = useState("");
   const [candidateId, setCandidateId] = useState(CANDIDATES[0]?.candidateId.toString() ?? "1");
   const [artifact, setArtifact] = useState<DynamicProofInputPreview | null>(null);
+  const [proofCheck, setProofCheck] = useState<DynamicBrowserProofCheckResult | null>(null);
+  const [proofCheckStatus, setProofCheckStatus] = useState<ProofCheckStatus>("idle");
+  const [proofCheckMessage, setProofCheckMessage] = useState<string | null>(null);
   const [status, setStatus] = useState<PreviewStatus>("idle");
   const [message, setMessage] = useState<string | null>(null);
   const isLoading = status === "loading";
+  const isProofCheckLoading = proofCheckStatus === "loading";
   const artifactJson = useMemo(() => (artifact ? JSON.stringify(artifact, null, 2) : ""), [artifact]);
   const selectedOption = useMemo(
     () => options.find((option) => option.registration.id === selectedRegistrationId) ?? null,
@@ -101,6 +110,9 @@ export function AdminDynamicProofInputPreview() {
         return nextOptions[0]?.registration.id ?? "";
       });
       setArtifact(null);
+      setProofCheck(null);
+      setProofCheckStatus("idle");
+      setProofCheckMessage(null);
       setStatus(successMessage ? "success" : "idle");
       setMessage(successMessage ?? null);
     } catch (error) {
@@ -136,6 +148,9 @@ export function AdminDynamicProofInputPreview() {
     try {
       const nextArtifact = await buildDynamicProofInputPreview(selectedRegistrationId, candidateId);
       setArtifact(nextArtifact);
+      setProofCheck(null);
+      setProofCheckStatus("idle");
+      setProofCheckMessage(null);
       setStatus("success");
       setMessage(
         nextArtifact.fullInputReady
@@ -146,6 +161,28 @@ export function AdminDynamicProofInputPreview() {
       setArtifact(null);
       setStatus("error");
       setMessage(getErrorMessage(error, "Unable to generate dynamic proof input artifact preview."));
+    }
+  };
+
+  const handleRunProofCheck = async () => {
+    if (!artifact?.fullInputReady) {
+      setProofCheckStatus("error");
+      setProofCheckMessage("Build a full dynamic proof input preview with local identity material first.");
+      return;
+    }
+
+    setProofCheckStatus("loading");
+    setProofCheckMessage(null);
+    setProofCheck(null);
+
+    try {
+      const nextProofCheck = await runDynamicBrowserProofCheck(artifact.registrationId, artifact.candidateId);
+      setProofCheck(nextProofCheck);
+      setProofCheckStatus("success");
+      setProofCheckMessage(`Dynamic proof dev check generated in ${nextProofCheck.timingMs}ms.`);
+    } catch (error) {
+      setProofCheckStatus("error");
+      setProofCheckMessage(getErrorMessage(error, "Dynamic browser proof dev check failed."));
     }
   };
 
@@ -236,6 +273,9 @@ export function AdminDynamicProofInputPreview() {
                 onChange={(event) => {
                   setSelectedRegistrationId(event.target.value);
                   setArtifact(null);
+                  setProofCheck(null);
+                  setProofCheckStatus("idle");
+                  setProofCheckMessage(null);
                 }}
                 disabled={isLoading}
                 className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-slate-50"
@@ -255,6 +295,9 @@ export function AdminDynamicProofInputPreview() {
                 onChange={(event) => {
                   setCandidateId(event.target.value);
                   setArtifact(null);
+                  setProofCheck(null);
+                  setProofCheckStatus("idle");
+                  setProofCheckMessage(null);
                 }}
                 disabled={isLoading}
                 className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-slate-50"
@@ -391,6 +434,14 @@ export function AdminDynamicProofInputPreview() {
 
               <div className="flex flex-col gap-3 sm:flex-row">
                 <button
+                  onClick={handleRunProofCheck}
+                  disabled={!artifact.fullInputReady || isLoading || isProofCheckLoading}
+                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {isProofCheckLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileJson className="h-4 w-4" />}
+                  Run dynamic proof dev check
+                </button>
+                <button
                   onClick={handleCopyArtifact}
                   disabled={!artifactJson || isLoading}
                   className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
@@ -407,6 +458,88 @@ export function AdminDynamicProofInputPreview() {
                   Download JSON
                 </button>
               </div>
+
+              {proofCheckMessage && (
+                <div
+                  className={`mt-6 flex items-start gap-2 rounded-xl border px-4 py-3 text-sm ${
+                    proofCheckStatus === "error"
+                      ? "border-red-200 bg-red-50 text-red-700"
+                      : "border-emerald-200 bg-emerald-50 text-emerald-700"
+                  }`}
+                >
+                  {proofCheckStatus === "error" ? (
+                    <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                  ) : (
+                    <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
+                  )}
+                  <span>{proofCheckMessage}</span>
+                </div>
+              )}
+
+              {proofCheck && (
+                <div className="mt-6 space-y-4 rounded-xl border border-blue-200 bg-blue-50 p-4">
+                  <div>
+                    <p className="text-sm font-semibold text-blue-900">Dynamic browser proof dev check</p>
+                    <p className="mt-1 text-sm text-blue-800">
+                      This proof is not used by Dashboard submit yet and no transaction was submitted.
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                    <div className="rounded-xl border border-blue-100 bg-white px-4 py-3">
+                      <p className="text-sm font-medium text-slate-500">timingMs</p>
+                      <p className="mt-1 text-2xl font-bold text-slate-950">{proofCheck.timingMs}</p>
+                    </div>
+                    <div className="rounded-xl border border-blue-100 bg-white px-4 py-3">
+                      <p className="text-sm font-medium text-slate-500">nullifierHash</p>
+                      <p className="mt-1 break-all font-mono text-xs font-semibold text-slate-950">
+                        {proofCheck.nullifierHash}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                    <div className="rounded-xl border border-blue-100 bg-white">
+                      <div className="border-b border-blue-100 px-4 py-3 text-sm font-semibold text-slate-700">
+                        publicSignals
+                      </div>
+                      <div className="divide-y divide-slate-100">
+                        {proofCheck.publicSignals.map((signal, index) => (
+                          <div key={`${signal}-${index}`} className="px-4 py-3">
+                            <p className="text-xs font-medium text-slate-500">Signal {index}</p>
+                            <p className="mt-1 break-all font-mono text-xs text-slate-900">{signal}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="rounded-xl border border-blue-100 bg-white">
+                      <div className="border-b border-blue-100 px-4 py-3 text-sm font-semibold text-slate-700">
+                        calldata input
+                      </div>
+                      <div className="divide-y divide-slate-100">
+                        {proofCheck.calldataInput.map((inputValue, index) => (
+                          <div key={`${inputValue}-${index}`} className="px-4 py-3">
+                            <p className="text-xs font-medium text-slate-500">input[{index}]</p>
+                            <p className="mt-1 break-all font-mono text-xs text-slate-900">{inputValue}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    {proofCheck.warnings.map((warning) => (
+                      <div
+                        key={warning}
+                        className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800"
+                      >
+                        <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                        <span>{warning}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </>
           )}
         </>

@@ -142,8 +142,22 @@ export async function generateVoteProof(
     zkeyPath?: string;
   } = {},
 ): Promise<BrowserVoteProofResult> {
-  const startedAt = performance.now();
   const nullifierHash = getLocalDemoNullifierHash(input);
+
+  return generateVoteProofWithPreparedInput(input, nullifierHash, options);
+}
+
+// Dev/dynamic proof check only. This accepts prepared Poseidon Merkle inputs and an
+// explicit nullifier hash, but it is not wired to Dashboard submission or castVote.
+export async function generateVoteProofWithPreparedInput(
+  input: BrowserVoteProofInput,
+  nullifierHash: string,
+  options: {
+    wasmPath?: string;
+    zkeyPath?: string;
+  } = {},
+): Promise<BrowserVoteProofResult> {
+  const startedAt = performance.now();
   const witnessInput = {
     nullifierHash,
     ...input,

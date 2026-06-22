@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawn } from "node:child_process";
 import { createServer } from "vite";
+import { buildPoseidon } from "circomlibjs";
 
 const CHROME_CANDIDATES = [
   process.env.CHROME_PATH,
@@ -228,6 +229,9 @@ function collectJsonFieldNames(value, fieldNames = []) {
 }
 
 const registryFixture = JSON.parse(await readFile(new URL("../src/contracts/registry.local.json", import.meta.url)));
+const dynamicVoterSecret = "987654321123456789";
+const poseidon = await buildPoseidon();
+const dynamicIdentityCommitment = poseidon.F.toString(poseidon([dynamicVoterSecret]));
 const chromePath = await findChrome();
 const userDataDir = await mkdtemp(join(tmpdir(), "zkvote-chrome-"));
 const server = await createServer({
@@ -311,7 +315,7 @@ try {
         userId: "new-voter",
         electionId: registryFixture.selectedElectionId,
         status: "APPROVED",
-        identityCommitment: "123456789987654321",
+        identityCommitment: dynamicIdentityCommitment,
         commitmentScheme: "POSEIDON",
         createdAt: "2026-06-22T00:00:00.000Z",
         reviewedAt: "2026-06-22T00:01:00.000Z",
@@ -336,7 +340,7 @@ try {
       {
         userId: "new-voter",
         electionId: registryFixture.selectedElectionId,
-        secret: "987654321123456789",
+        secret: dynamicVoterSecret,
         createdAt: "2026-06-22T00:00:00.000Z",
       },
     ]))});
@@ -508,6 +512,56 @@ try {
   `);
   await waitForExpression(client, `document.body.innerText.includes("Dynamic artifact preview JSON download prepared.")`);
 
+  await client.evaluate(`
+    (() => {
+      const button = [...document.querySelectorAll("button")].find((candidate) =>
+        candidate.textContent.includes("Run dynamic proof dev check")
+      );
+      button.click();
+      return true;
+    })()
+  `);
+  await waitForExpression(
+    client,
+    `document.body.innerText.includes("Dynamic proof dev check generated") &&
+      document.body.innerText.includes("publicSignals") &&
+      document.body.innerText.includes("calldata input")`,
+    120_000,
+  );
+
+  const dynamicProofCheck = await client.evaluate(`
+    (async () => {
+      const { runDynamicBrowserProofCheck } = await import("/src/app/lib/dynamicBrowserProofCheck.ts");
+      return await runDynamicBrowserProofCheck("registration-poseidon", 1);
+    })()
+  `);
+  const dynamicProofFieldNames = collectJsonFieldNames(dynamicProofCheck);
+  const dynamicProofForbiddenFieldName = dynamicProofFieldNames.find((fieldName) =>
+    fieldName !== "nullifierhash" &&
+    FORBIDDEN_PRIVATE_FIELD_PARTS.some((forbiddenPart) => fieldName.includes(forbiddenPart)),
+  );
+
+  if (dynamicProofForbiddenFieldName) {
+    throw new Error(`Dynamic proof check result contains forbidden field name: ${dynamicProofForbiddenFieldName}.`);
+  }
+
+  const expectedPublicInputs = [
+    dynamicProofCheck.nullifierHash,
+    dynamicProofCheck.candidateId,
+    dynamicProofCheck.electionId,
+    dynamicProofCheck.merkleRootPreview,
+  ].map((value) => BigInt(value).toString());
+  const actualPublicSignals = dynamicProofCheck.publicSignals.map((value) => BigInt(value).toString());
+  const actualCalldataInput = dynamicProofCheck.calldataInput.map((value) => BigInt(value).toString());
+  const publicInputsMatch =
+    expectedPublicInputs.every((expectedValue, index) =>
+      actualPublicSignals[index] === expectedValue && actualCalldataInput[index] === expectedValue
+    );
+
+  if (!publicInputsMatch) {
+    throw new Error("Dynamic proof check public signals/calldata input did not match expected public inputs.");
+  }
+
   const summary = {
     passed: true,
     appUrl,
@@ -516,6 +570,8 @@ try {
     copiedJsonPrivateFieldCheck: "passed",
     dynamicArtifactPrivateFieldCheck: "passed",
     dynamicArtifactPathElements: dynamicCopiedJson.pathElements.length,
+    dynamicProofCheckPrivateFieldCheck: "passed",
+    dynamicProofCheckTimingMs: dynamicProofCheck.timingMs,
     runtimeCheckTextVisible: true,
   };
 
