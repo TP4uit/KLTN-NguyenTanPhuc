@@ -67,13 +67,13 @@ export async function buildMerkleRootAlignment(contractRoot: string): Promise<Me
 
   if (!contractMatchesFixture) {
     warnings.push(
-      "Browser proof voting will fail unless the contract Merkle root matches the static proof fixture root.",
+      "Static Dashboard submit will fail unless the contract Merkle root matches the static proof fixture root.",
     );
   }
 
   if (contractMatchesPreview && !contractMatchesFixture) {
     warnings.push(
-      "The contract root matches the Poseidon preview-only root, but the current browser proof demo still expects the static fixture root.",
+      "The contract root matches the Poseidon preview-only root. Dynamic dev-check proofs can target this root, but Dashboard dynamic submit remains disabled.",
     );
   }
 
@@ -83,7 +83,7 @@ export async function buildMerkleRootAlignment(contractRoot: string): Promise<Me
 
   if (previewRoot !== fixtureRoot) {
     warnings.push(
-      "Poseidon preview-only root is not proof-compatible until matching Merkle paths and proof inputs are generated later.",
+      "Poseidon preview-only root has matching preview paths and dev-check proofs, but dynamic submit is still disabled until a later guarded flow.",
     );
   }
 
@@ -135,7 +135,7 @@ export function classifyOpenElectionReadiness(
     return {
       canOpenSafely: true,
       severity: "success",
-      label: "Browser proof demo root-compatible",
+      label: "Static Dashboard submit root-compatible",
       warnings: [],
     };
   }
@@ -144,9 +144,9 @@ export function classifyOpenElectionReadiness(
     return {
       canOpenSafely: false,
       severity: "warning",
-      label: "Preview root selected; browser proof demo not ready",
+      label: "Preview root selected; static Dashboard submit not ready",
       warnings: [
-        "The contract root matches the Poseidon preview-only root, but the current browser proof demo will not work yet.",
+        "The contract root matches the Poseidon preview-only root. Static Dashboard submit still expects the fixture root; dynamic submit is disabled until a later guarded flow.",
       ],
     };
   }
@@ -154,7 +154,7 @@ export function classifyOpenElectionReadiness(
   return {
     canOpenSafely: false,
     severity: "warning",
-    label: "Custom root may break browser proof demo",
+    label: "Custom root may break Dashboard submits",
     warnings: ["The contract root does not match the static fixture or Poseidon preview-only root."],
   };
 }
@@ -183,13 +183,13 @@ export function classifyMerkleRootInput(
     return {
       kind: "PREVIEW",
       label: "Poseidon preview-only root",
-      warning: "Browser proof voting may fail because current proof generation expects the static fixture root.",
+      warning: "Static Dashboard submit expects the fixture root. Dynamic dev-check proofs can target the preview root, but dynamic submit remains disabled.",
     };
   }
 
   return {
     kind: "CUSTOM",
     label: "Custom root",
-    warning: "Browser proof voting may fail because current proof generation expects the static fixture root.",
+    warning: "Dashboard submit may fail because the static path expects the fixture root and dynamic submit is disabled.",
   };
 }

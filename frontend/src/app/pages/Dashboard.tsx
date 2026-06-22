@@ -13,11 +13,16 @@ import {
   getFixtureCandidateId,
   localElection,
   localVoteCalldata,
-  readLiveElectionLifecycle,
+  readLiveElectionReadState,
   type ElectionLifecycle,
 } from "../lib/localElection";
 import { buildLocalDemoProofInput, generateVoteProof } from "../lib/browserProof";
 import { CANDIDATES } from "../lib/candidates";
+import {
+  getDynamicVoteReadiness,
+  type DynamicVoteReadiness,
+} from "../lib/dynamicVoteReadiness";
+import { getRegistrationCommitmentScheme } from "../lib/localVoterRegistration";
 import { getRegistrationProofCompatibility } from "../lib/registrationProofCompatibility";
 import { useVoterRegistration } from "../lib/useVoterRegistration";
 
@@ -43,7 +48,11 @@ export function Dashboard() {
   const [electionLifecycle, setElectionLifecycle] = useState<ElectionLifecycle>(
     getMetadataElectionLifecycle(),
   );
+  const [contractRoot, setContractRoot] = useState<string | null>(null);
   const [isLiveLifecycle, setIsLiveLifecycle] = useState(false);
+  const [dynamicReadiness, setDynamicReadiness] = useState<DynamicVoteReadiness | null>(null);
+  const [dynamicReadinessLoading, setDynamicReadinessLoading] = useState(false);
+  const [dynamicReadinessError, setDynamicReadinessError] = useState<string | null>(null);
   const fixtureCandidateId = getFixtureCandidateId();
   const isWorking = status === "generating" || status === "submitting";
   const isProofGenerating = browserProofStatus === "generating";
@@ -100,8 +109,12 @@ export function Dashboard() {
         }
 
         setAccount(connection.account);
-        const lifecycle = await readLiveElectionLifecycle(connection.contract);
-        setElectionLifecycle(lifecycle);
+        const readState = await readLiveElectionReadState(connection.contract);
+        setElectionLifecycle({
+          electionState: readState.electionState,
+          electionStateName: readState.electionStateName,
+        });
+        setContractRoot(readState.merkleRoot);
         setIsLiveLifecycle(true);
         setStatus("connected");
       })
@@ -112,11 +125,53 @@ export function Dashboard() {
   }, []);
 
   const refreshLifecycle = async (contract: Awaited<ReturnType<typeof connectLocalElection>>["contract"]) => {
-    const lifecycle = await readLiveElectionLifecycle(contract);
+    const readState = await readLiveElectionReadState(contract);
+    const lifecycle = {
+      electionState: readState.electionState,
+      electionStateName: readState.electionStateName,
+    };
     setElectionLifecycle(lifecycle);
+    setContractRoot(readState.merkleRoot);
     setIsLiveLifecycle(true);
     return lifecycle;
   };
+
+  useEffect(() => {
+    let isMounted = true;
+
+    setDynamicReadinessLoading(true);
+    setDynamicReadinessError(null);
+
+    getDynamicVoteReadiness(voterRegistration.registration, electionLifecycle, contractRoot, {
+      hasVotedInSession: hasVotedAny,
+    })
+      .then((readiness) => {
+        if (!isMounted) {
+          return;
+        }
+
+        setDynamicReadiness(readiness);
+      })
+      .catch((error) => {
+        if (!isMounted) {
+          return;
+        }
+
+        setDynamicReadiness(null);
+        setDynamicReadinessError(
+          error instanceof Error ? error.message : "Unable to evaluate dynamic vote readiness.",
+        );
+      })
+      .finally(() => {
+        if (isMounted) {
+          setDynamicReadinessLoading(false);
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [contractRoot, electionLifecycle, hasVotedAny, voterRegistration.registration]);
 
   const ensureElectionOpen = async (contract: Awaited<ReturnType<typeof connectLocalElection>>["contract"]) => {
     const lifecycle = await refreshLifecycle(contract);
@@ -376,6 +431,110 @@ export function Dashboard() {
             >
               {canSubmitVote ? "Voting enabled" : "Voting disabled"}
             </span>
+          </div>
+        </section>
+
+        <section className="mb-8 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div className="max-w-4xl">
+              <h2 className="text-lg font-bold text-slate-900">Dynamic Vote Readiness</h2>
+              <p className="mt-2 text-sm text-slate-600">
+                This checks whether dynamic Poseidon vote submission would be safe to enable later. It does not change
+                the current fixture-gated Dashboard submit path.
+              </p>
+            </div>
+            <span
+              className={`inline-flex w-fit rounded-full border px-3 py-1 text-xs font-semibold ${
+                dynamicReadiness?.severity === "success"
+                  ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                  : dynamicReadiness?.severity === "warning"
+                    ? "border-amber-200 bg-amber-50 text-amber-700"
+                    : "border-red-200 bg-red-50 text-red-700"
+              }`}
+            >
+              {dynamicReadinessLoading ? "Checking..." : dynamicReadiness?.label ?? "Dynamic readiness unavailable"}
+            </span>
+          </div>
+
+          <div className="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-2">
+            <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+              <p className="text-sm font-medium text-slate-500">Registration scheme</p>
+              <p className="mt-1 font-mono text-sm font-semibold text-slate-900">
+                {voterRegistration.registration
+                  ? getRegistrationCommitmentScheme(voterRegistration.registration)
+                  : "No registration"}
+              </p>
+            </div>
+            <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+              <p className="text-sm font-medium text-slate-500">Contract root source</p>
+              <p className="mt-1 text-sm font-semibold text-slate-900">
+                {contractRoot ? "Live contract read" : "Unavailable until wallet/contract connection"}
+              </p>
+            </div>
+            <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+              <p className="text-sm font-medium text-slate-500">Dynamic preview root</p>
+              <p className="mt-1 break-all font-mono text-xs font-semibold text-slate-900">
+                {dynamicReadiness?.dynamicPreviewRoot ?? "Loading..."}
+              </p>
+            </div>
+            <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+              <p className="text-sm font-medium text-slate-500">Contract root</p>
+              <p className="mt-1 break-all font-mono text-xs font-semibold text-slate-900">
+                {dynamicReadiness?.contractRoot ?? "Not available"}
+              </p>
+            </div>
+            <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+              <p className="text-sm font-medium text-slate-500">Contract root matches dynamic preview</p>
+              <p className={`mt-1 text-sm font-semibold ${
+                dynamicReadiness?.contractMatchesDynamicPreview ? "text-emerald-700" : "text-amber-700"
+              }`}>
+                {dynamicReadiness?.contractMatchesDynamicPreview ? "Yes" : "No"}
+              </p>
+            </div>
+            <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+              <p className="text-sm font-medium text-slate-500">Static fixture root</p>
+              <p className="mt-1 break-all font-mono text-xs font-semibold text-slate-900">
+                {dynamicReadiness?.staticFixtureRoot ?? "Loading..."}
+              </p>
+            </div>
+          </div>
+
+          <div
+            className={`mt-4 rounded-xl border px-4 py-3 text-sm ${
+              dynamicReadiness?.severity === "success"
+                ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                : dynamicReadiness?.severity === "warning"
+                  ? "border-amber-200 bg-amber-50 text-amber-800"
+                  : "border-red-200 bg-red-50 text-red-700"
+            }`}
+          >
+            {dynamicReadinessLoading && "Checking dynamic vote readiness..."}
+            {dynamicReadinessError && dynamicReadinessError}
+            {!dynamicReadinessLoading && !dynamicReadinessError && dynamicReadiness && (
+              <div className="space-y-2">
+                <div className="font-semibold">{dynamicReadiness.label}</div>
+                <ul className="space-y-1">
+                  {dynamicReadiness.reasons.map((reason) => (
+                    <li key={reason}>- {reason}</li>
+                  ))}
+                </ul>
+                <p className="text-xs">{dynamicReadiness.recommendedAction}</p>
+              </div>
+            )}
+          </div>
+
+          <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center">
+            <button
+              disabled
+              className="inline-flex cursor-not-allowed items-center justify-center gap-2 rounded-xl bg-slate-100 px-4 py-2.5 text-sm font-semibold text-slate-400"
+            >
+              Dynamic vote submit not enabled yet
+            </button>
+            {dynamicReadiness?.isReady && (
+              <span className="text-sm font-medium text-emerald-700">
+                Ready for a later guarded submit goal.
+              </span>
+            )}
           </div>
         </section>
 

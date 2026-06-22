@@ -562,6 +562,80 @@ try {
     throw new Error("Dynamic proof check public signals/calldata input did not match expected public inputs.");
   }
 
+  await client.evaluate(`
+    (() => {
+      const users = JSON.parse(localStorage.getItem("zkvote.demoAuth.users") || "[]");
+      const dynamicUser = {
+        id: "dynamic-voter",
+        fullName: "Dynamic Voter",
+        email: "dynamic-voter@zkvote.local",
+        role: "VOTER",
+        password: "password123",
+        createdAt: "2026-06-22T00:00:00.000Z"
+      };
+      localStorage.setItem("zkvote.demoAuth.users", JSON.stringify([
+        ...users.filter((user) => user.id !== dynamicUser.id),
+        dynamicUser
+      ]));
+      localStorage.setItem("zkvote.demoAuth.session", JSON.stringify({
+        userId: dynamicUser.id,
+        createdAt: "2026-06-22T00:00:00.000Z"
+      }));
+      localStorage.setItem("zkvote.voterRegistrations", ${JSON.stringify(JSON.stringify([
+        {
+          id: "registration-dashboard-poseidon",
+          userId: "dynamic-voter",
+          electionId: registryFixture.selectedElectionId,
+          status: "APPROVED",
+          identityCommitment: dynamicIdentityCommitment,
+          commitmentScheme: "POSEIDON",
+          createdAt: "2026-06-22T00:00:00.000Z",
+          reviewedAt: "2026-06-22T00:01:00.000Z",
+        },
+      ]))});
+      localStorage.setItem("zkvote.localIdentitySecrets", ${JSON.stringify(JSON.stringify([
+        {
+          userId: "dynamic-voter",
+          electionId: registryFixture.selectedElectionId,
+          secret: dynamicVoterSecret,
+          createdAt: "2026-06-22T00:00:00.000Z",
+        },
+      ]))});
+      window.__castVoteCallCount = 0;
+      return true;
+    })()
+  `);
+
+  const dashboardNavigation = client.waitForEvent("Page.loadEventFired");
+  await client.send("Page.navigate", { url: `${appUrl}/dashboard` });
+  await dashboardNavigation;
+  await waitForExpression(client, `document.body.innerText.includes("Dynamic Vote Readiness")`);
+  await waitForExpression(client, `document.body.innerText.includes("POSEIDON")`);
+  await waitForExpression(
+    client,
+    `document.body.innerText.includes("Contract Merkle root is unavailable") ||
+      document.body.innerText.includes("Live contract Merkle root is unavailable")`,
+  );
+
+  const dynamicSubmitDisabled = await client.evaluate(`
+    (() => {
+      const button = [...document.querySelectorAll("button")].find((candidate) =>
+        candidate.textContent.includes("Dynamic vote submit not enabled yet")
+      );
+      return Boolean(button && button.disabled);
+    })()
+  `);
+
+  if (!dynamicSubmitDisabled) {
+    throw new Error("Dashboard dynamic submit placeholder was not disabled.");
+  }
+
+  const dynamicCastVoteCallCount = await client.evaluate("window.__castVoteCallCount");
+
+  if ((dynamicCastVoteCallCount ?? 0) !== 0) {
+    throw new Error("Dynamic readiness smoke unexpectedly recorded a castVote call.");
+  }
+
   const summary = {
     passed: true,
     appUrl,
@@ -572,6 +646,9 @@ try {
     dynamicArtifactPathElements: dynamicCopiedJson.pathElements.length,
     dynamicProofCheckPrivateFieldCheck: "passed",
     dynamicProofCheckTimingMs: dynamicProofCheck.timingMs,
+    dashboardDynamicReadinessVisible: true,
+    dashboardDynamicSubmitDisabled: true,
+    dynamicCastVoteCallCount: dynamicCastVoteCallCount ?? 0,
     runtimeCheckTextVisible: true,
   };
 

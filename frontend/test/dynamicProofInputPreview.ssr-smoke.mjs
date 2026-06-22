@@ -66,6 +66,7 @@ try {
     getDynamicProofInputReadiness,
   } = await server.ssrLoadModule("/src/app/lib/dynamicProofInputPreview.ts");
   const { runDynamicBrowserProofCheck } = await server.ssrLoadModule("/src/app/lib/dynamicBrowserProofCheck.ts");
+  const { getDynamicVoteReadiness } = await server.ssrLoadModule("/src/app/lib/dynamicVoteReadiness.ts");
   const { listRegistrations } = await server.ssrLoadModule("/src/app/lib/localVoterRegistration.ts");
   const { buildRegistryPreview } = await server.ssrLoadModule("/src/app/lib/registryPreview.ts");
 
@@ -132,6 +133,26 @@ try {
   const privateFieldName = collectJsonFieldNames(poseidonInputPreview).find((fieldName) =>
     forbiddenFieldParts.some((forbiddenPart) => fieldName.includes(forbiddenPart)),
   );
+  const initialRegistryPreview = await buildRegistryPreview(currentElectionId);
+  const poseidonRegistration = listRegistrations(currentElectionId).find(
+    (registration) => registration.id === "registration-poseidon",
+  );
+  const dynamicReady = await getDynamicVoteReadiness(
+    poseidonRegistration,
+    { electionState: 1, electionStateName: "Open" },
+    initialRegistryPreview.merkleRootPreview,
+  );
+  const dynamicRootMismatch = await getDynamicVoteReadiness(
+    poseidonRegistration,
+    { electionState: 1, electionStateName: "Open" },
+    registryFixture.merkleRoot,
+  );
+  const dynamicAlreadyVoted = await getDynamicVoteReadiness(
+    poseidonRegistration,
+    { electionState: 1, electionStateName: "Open" },
+    initialRegistryPreview.merkleRootPreview,
+    { hasVotedInSession: true },
+  );
 
   setRegistrations([
     {
@@ -180,6 +201,9 @@ try {
     ["fixture registration path indices have depth 3", fixturePathPreview.pathIndices.length === 3],
     ["new POSEIDON registration builds full input preview", poseidonInputPreview.fullInputReady],
     ["new POSEIDON registration has nullifier preview", /^\d+$/.test(poseidonInputPreview.nullifierHashPreview ?? "")],
+    ["dynamic vote readiness succeeds when contract root matches preview", dynamicReady.isReady],
+    ["dynamic vote readiness blocks when contract root mismatches preview", !dynamicRootMismatch.isReady && dynamicRootMismatch.reasons.some((reason) => reason.includes("does not match"))],
+    ["dynamic vote readiness blocks after session vote", !dynamicAlreadyVoted.isReady && dynamicAlreadyVoted.reasons.some((reason) => reason.includes("already recorded"))],
     ["SHA256_DEMO registration is incompatible", shaReadiness.status === "INCOMPATIBLE"],
     ["SHA256_DEMO dynamic proof check is blocked", shaProofCheckBlocked],
     ["missing identity material is path-only", missingMaterialReadiness.status === "PATH_ONLY"],

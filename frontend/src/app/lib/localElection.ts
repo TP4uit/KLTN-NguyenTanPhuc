@@ -27,6 +27,10 @@ export type ElectionLifecycle = {
   electionStateName: ElectionStateName;
 };
 
+export type ElectionReadState = ElectionLifecycle & {
+  merkleRoot: string;
+};
+
 export type ElectionAdminState = ElectionLifecycle & {
   admin: string;
   electionId: string;
@@ -179,6 +183,18 @@ export async function readLiveElectionLifecycle(contract: Contract): Promise<Ele
   return {
     electionState,
     electionStateName: getElectionStateName(rawState),
+  };
+}
+
+export async function readLiveElectionReadState(contract: Contract): Promise<ElectionReadState> {
+  const [lifecycle, merkleRoot] = await Promise.all([
+    readLiveElectionLifecycle(contract),
+    contract.merkleRoot(),
+  ]);
+
+  return {
+    ...lifecycle,
+    merkleRoot: merkleRoot.toString(),
   };
 }
 

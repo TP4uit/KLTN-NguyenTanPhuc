@@ -88,6 +88,7 @@ Verification notes:
 - [x] Harden browser runtime verification for Poseidon registry preview.
 - [x] Add dynamic Poseidon Merkle path/proof input artifact preview.
 - [x] Add dynamic browser proof dev check.
+- [x] Add dynamic vote submission readiness gate.
 
 Verification notes:
 
@@ -106,7 +107,9 @@ Verification notes:
 - This does not yet generate or submit real dynamic browser proofs. Dashboard voting still uses the static fixture proof path until a later goal wires dynamic proof generation safely.
 - Admin Dynamic Proof Input Preview can run a dev-only dynamic browser proof check from prepared Poseidon path artifacts, returning public signals and calldata inputs without exposing raw identity material or submitting a transaction.
 - Dynamic proof generation is dev-check only. Dashboard submission still uses the static fixture proof path, and the contract root must match the proof root before dynamic vote submission can be enabled later.
+- Dashboard Dynamic Vote Readiness now reports whether a later dynamic Poseidon submit would be safe to enable by checking approved Poseidon registration state, preview leaf inclusion, local identity material, dynamic proof input preview availability, Open election state, live contract root match, and current UI-session vote state.
+- Dynamic vote submit remains disabled even when readiness succeeds. Enabling it still requires `contract.merkleRoot == dynamicPreviewRoot` plus an explicit guarded submit flow in a later goal.
 - `cd frontend && npm run build` passed.
-- Vite SSR smoke test `npm run smoke:registry-preview` passed for seeded `FIXTURE_POSEIDON`, new `POSEIDON`, missing-scheme `SHA256_DEMO` exclusion, compatible/incompatible counts, direct identity-commitment leaf level, zero padding, warning text, dynamic path generation, overflow blocking, missing identity material path-only behavior, dynamic proof-check blocking for missing material and `SHA256_DEMO`, and redacted JSON field names.
-- Browser smoke `npm run smoke:dynamic-proof` passed in local Chrome for admin login, `/admin` Registry Preview render, refresh action, runtime check pass result, dynamic artifact build, dynamic browser proof dev check, public signal/calldata input matching, copy/download JSON actions, path shape, `nullifierHashPreview`, and copied JSON private-field redaction.
+- Vite SSR smoke test `npm run smoke:registry-preview` passed for seeded `FIXTURE_POSEIDON`, new `POSEIDON`, missing-scheme `SHA256_DEMO` exclusion, compatible/incompatible counts, direct identity-commitment leaf level, zero padding, warning text, dynamic path generation, overflow blocking, missing identity material path-only behavior, dynamic proof-check blocking for missing material and `SHA256_DEMO`, dynamic vote readiness success/root-mismatch/session-voted states, and redacted JSON field names.
+- Browser smoke `npm run smoke:dynamic-proof` passed in local Chrome for admin login, `/admin` Registry Preview render, refresh action, runtime check pass result, dynamic artifact build, dynamic browser proof dev check, public signal/calldata input matching, Dashboard dynamic readiness display for a `POSEIDON` voter, disabled dynamic submit placeholder, copy/download JSON actions, path shape, `nullifierHashPreview`, and copied JSON private-field redaction.
 - Earlier Goal 5.1 Headless Chrome smoke test passed for fixture voter `FIXTURE_POSEIDON`, new voter `POSEIDON`, missing-scheme `SHA256_DEMO`, evidence scheme/redaction checks, and disabled vote buttons for approved-but-not-fixture-compatible voters.
