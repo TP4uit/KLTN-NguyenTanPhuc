@@ -1,6 +1,7 @@
 import { AlertCircle, AlertTriangle, CheckCircle2, KeyRound, Loader2, Lock, RefreshCw, Shield, Wallet, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AdminDynamicProofInputPreview } from "../components/AdminDynamicProofInputPreview";
+import { AdminDemoModeGuide } from "../components/AdminDemoModeGuide";
 import { AdminMerkleRootAlignment } from "../components/AdminMerkleRootAlignment";
 import { AdminRegistryPreview } from "../components/AdminRegistryPreview";
 import { AdminVoterRegistrationManager } from "../components/AdminVoterRegistrationManager";
@@ -411,6 +412,15 @@ export function Admin() {
         <AdminRegistryPreview />
         <AdminDynamicProofInputPreview />
 
+        <AdminDemoModeGuide
+          contractRoot={lifecycle.merkleRoot}
+          lifecycleState={lifecycle.electionState}
+          lifecycleStateName={lifecycle.electionStateName}
+          onUseStaticRoot={updateNewRoot}
+          onUseDynamicRoot={updateNewRoot}
+          disabled={isBusy}
+        />
+
         <AdminMerkleRootAlignment
           contractRoot={lifecycle.merkleRoot}
           onUseFixtureRoot={updateNewRoot}
@@ -457,7 +467,7 @@ export function Admin() {
                   >
                     Use static proof fixture root
                     <span className="mt-1 block text-xs font-normal text-emerald-700">
-                      Recommended for current browser proof demo
+                      Static Fixture Mode
                     </span>
                   </button>
                   <button
@@ -465,9 +475,9 @@ export function Admin() {
                     disabled={!alignment || isBusy}
                     className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-left text-sm font-semibold text-amber-800 transition hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-60"
                   >
-                    Use Poseidon preview-only root
+                    Use dynamic preview root
                     <span className="mt-1 block text-xs font-normal text-amber-700">
-                      Preview-only, not proof-compatible yet
+                      Dynamic Poseidon Mode
                     </span>
                   </button>
                   <button
@@ -590,8 +600,8 @@ export function Admin() {
                   <div>
                     <div className="font-semibold">Open Election Readiness</div>
                     <p className="mt-1">
-                      For the current browser proof demo, open election only after contract root matches the static proof
-                      fixture root.
+                      Open after choosing the root for the demo mode you intend to run: static fixture submit or guarded
+                      dynamic Poseidon submit.
                     </p>
                   </div>
                 </div>
@@ -605,7 +615,7 @@ export function Admin() {
                     <dd className="mt-1 font-semibold">{openReadiness.label}</dd>
                   </div>
                   <div>
-                    <dt className="font-medium">Browser proof demo should work</dt>
+                    <dt className="font-medium">Selected demo mode can submit</dt>
                     <dd className="mt-1 font-semibold">{openReadiness.canOpenSafely ? "Yes" : "No"}</dd>
                   </div>
                   <div>

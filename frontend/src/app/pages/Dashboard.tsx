@@ -422,7 +422,7 @@ export function Dashboard() {
               Select a candidate below to cast your anonymous, verifiable vote for the upcoming governance term.
             </p>
             <p className="text-sm text-slate-500 mt-3">
-              Browser-generated proof voting uses the local demo voter on chain {localElection.chainId}.
+              Static Vote uses the fixture root; Dynamic submit uses the Poseidon preview root on chain {localElection.chainId}.
             </p>
             <p className="text-sm text-slate-500 mt-1">
               Election state: <span className="font-semibold text-slate-700">{electionLifecycle.electionStateName}</span>
@@ -708,7 +708,8 @@ export function Dashboard() {
                 <h2 className="text-lg font-bold text-slate-900">Browser Proof Dev Check</h2>
               </div>
               <p className="text-sm text-slate-600 leading-relaxed">
-                Generate a Groth16 proof with the local demo registry fixture. The main vote buttons now submit generated calldata; the fixture fallback remains available for candidate {fixtureCandidateId}.
+                Generate a Groth16 proof with the local demo registry fixture. Static Vote uses fixture calldata; Dynamic
+                submit has its own guarded Poseidon path. The fixture fallback remains available for candidate {fixtureCandidateId}.
               </p>
             </div>
 

@@ -351,6 +351,9 @@ try {
   await client.send("Page.navigate", { url: `${appUrl}/admin` });
   await navigation;
   await waitForExpression(client, `document.body.innerText.includes("Registry Preview")`);
+  await waitForExpression(client, `document.body.innerText.includes("Admin Demo Mode Guide")`);
+  await waitForExpression(client, `document.body.innerText.includes("Static Fixture Mode")`);
+  await waitForExpression(client, `document.body.innerText.includes("Dynamic Poseidon Mode")`);
   await waitForExpression(client, `document.body.innerText.includes("Poseidon preview-only root")`);
 
   const runtimeLoadError = await client.evaluate(
@@ -387,6 +390,164 @@ try {
 
   if (refreshRuntimeLoadError) {
     throw new Error("Refresh preview showed a Poseidon runtime load error.");
+  }
+
+  const demoModeHelperChecks = await client.evaluate(`
+    (async () => {
+      const { buildRegistryPreview } = await import("/src/app/lib/registryPreview.ts");
+      const { buildDemoModeReadiness, classifyDemoModeRoot } = await import("/src/app/lib/demoModeReadiness.ts");
+      const preview = await buildRegistryPreview(${JSON.stringify(registryFixture.selectedElectionId)});
+      const staticMode = await buildDemoModeReadiness(${JSON.stringify(registryFixture.merkleRoot)}, 0);
+      const dynamicMode = await buildDemoModeReadiness(preview.merkleRootPreview, 0);
+      const customMode = await buildDemoModeReadiness("12345", 0);
+      const unsetMode = await buildDemoModeReadiness("0", 0);
+
+      return {
+        dynamicPreviewRoot: preview.merkleRootPreview,
+        staticMode: staticMode.activeMode,
+        dynamicMode: dynamicMode.activeMode,
+        customMode: customMode.activeMode,
+        customWarns: customMode.warnings.some((warning) => warning.includes("both demo submit paths")),
+        unsetMode: unsetMode.activeMode,
+        unsetWarns: unsetMode.warnings.some((warning) => warning.includes("empty or zero")),
+        classifiedStatic: await classifyDemoModeRoot(${JSON.stringify(registryFixture.merkleRoot)}),
+        classifiedDynamic: await classifyDemoModeRoot(preview.merkleRootPreview),
+      };
+    })()
+  `);
+
+  if (
+    demoModeHelperChecks.staticMode !== "STATIC_FIXTURE" ||
+    demoModeHelperChecks.dynamicMode !== "DYNAMIC_POSEIDON" ||
+    demoModeHelperChecks.customMode !== "CUSTOM" ||
+    !demoModeHelperChecks.customWarns ||
+    demoModeHelperChecks.unsetMode !== "UNSET" ||
+    !demoModeHelperChecks.unsetWarns ||
+    demoModeHelperChecks.classifiedStatic !== "STATIC_FIXTURE" ||
+    demoModeHelperChecks.classifiedDynamic !== "DYNAMIC_POSEIDON"
+  ) {
+    throw new Error("Admin demo mode helper checks failed in browser smoke.");
+  }
+
+  await client.evaluate(`
+    (() => {
+      const encodeUint = (value) => "0x" + BigInt(value).toString(16).padStart(64, "0");
+      const encodeAddress = (value) => "0x" + value.toLowerCase().replace(/^0x/, "").padStart(64, "0");
+      const account = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266";
+      const fixtureElectionId = ${JSON.stringify(registryFixture.selectedElectionId)};
+      const fixtureMerkleRoot = ${JSON.stringify(registryFixture.merkleRoot)};
+      window.__setMerkleRootTransactionCount = 0;
+      window.__openElectionTransactionCount = 0;
+      window.ethereum = {
+        async request({ method, params }) {
+          if (method === "eth_chainId") {
+            return "0x7a69";
+          }
+
+          if (method === "eth_accounts" || method === "eth_requestAccounts") {
+            return [account];
+          }
+
+          if (method === "eth_call") {
+            const call = Array.isArray(params) ? params[0] : params;
+            const data = String(call?.data ?? "").toLowerCase();
+
+            if (data.startsWith("0xf851a440")) return encodeAddress(account);
+            if (data.startsWith("0x051364d4")) return encodeUint(fixtureElectionId);
+            if (data.startsWith("0x2280043d")) return encodeUint(0);
+            if (data.startsWith("0x2eb4a7ab")) return encodeUint(fixtureMerkleRoot);
+            return encodeUint(0);
+          }
+
+          if (method === "eth_sendTransaction") {
+            const tx = Array.isArray(params) ? params[0] : params;
+            const data = String(tx?.data ?? "").toLowerCase();
+
+            if (data.startsWith("0x5d5e8875")) window.__setMerkleRootTransactionCount += 1;
+            if (data.startsWith("0xc5d00f5d")) window.__openElectionTransactionCount += 1;
+            return "0xmocktx";
+          }
+
+          return null;
+        },
+        on() {},
+        removeListener() {},
+      };
+      return true;
+    })()
+  `);
+
+  await client.evaluate(`
+    (() => {
+      const button = [...document.querySelectorAll("button")].find((candidate) =>
+        candidate.textContent.includes("Connect MetaMask")
+      );
+      button.click();
+      return true;
+    })()
+  `);
+  await waitForExpression(client, `document.body.innerText.includes("Admin permissions active")`, 20_000);
+  await waitForExpression(client, `document.body.innerText.includes("Detected active mode") && document.body.innerText.includes("Static Fixture Mode")`);
+
+  await client.evaluate(`
+    (() => {
+      const staticButton = [...document.querySelectorAll("button")].find((candidate) =>
+        candidate.textContent.trim() === "Use static fixture root in input"
+      );
+      staticButton.click();
+      return true;
+    })()
+  `);
+  await waitForExpression(
+    client,
+    `document.querySelector("#merkle-root")?.value === ${JSON.stringify(registryFixture.merkleRoot)}`,
+  );
+  const staticModeButtonTxCount = await client.evaluate("window.__setMerkleRootTransactionCount");
+
+  await client.evaluate(`
+    (() => {
+      const dynamicButton = [...document.querySelectorAll("button")].find((candidate) =>
+        candidate.textContent.trim() === "Use dynamic preview root in input"
+      );
+      dynamicButton.click();
+      return true;
+    })()
+  `);
+  await waitForExpression(
+    client,
+    `document.querySelector("#merkle-root")?.value === ${JSON.stringify(demoModeHelperChecks.dynamicPreviewRoot)}`,
+  );
+  const dynamicModeButtonTxCount = await client.evaluate("window.__setMerkleRootTransactionCount");
+
+  if (staticModeButtonTxCount !== 0 || dynamicModeButtonTxCount !== 0) {
+    throw new Error("Admin demo mode guide root-fill buttons submitted a setMerkleRoot transaction.");
+  }
+
+  await client.evaluate(`
+    (() => {
+      const button = [...document.querySelectorAll("button")].find((candidate) =>
+        candidate.textContent.trim() === "Set root"
+      );
+      button.click();
+      return true;
+    })()
+  `);
+  await waitForExpression(client, `document.body.innerText.includes("Confirm setMerkleRoot")`);
+
+  const setMerkleRootConfirmationSmoke = await client.evaluate(`
+    (() => ({
+      confirmationVisible: document.body.innerText.includes("Confirm and submit setMerkleRoot"),
+      setMerkleRootTransactions: window.__setMerkleRootTransactionCount,
+      openElectionTransactions: window.__openElectionTransactionCount,
+    }))()
+  `);
+
+  if (
+    !setMerkleRootConfirmationSmoke.confirmationVisible ||
+    setMerkleRootConfirmationSmoke.setMerkleRootTransactions !== 0 ||
+    setMerkleRootConfirmationSmoke.openElectionTransactions !== 0
+  ) {
+    throw new Error("setMerkleRoot confirmation smoke failed or submitted a transaction.");
   }
 
   await client.evaluate(`
@@ -795,6 +956,11 @@ try {
     dynamicSubmitRootMismatchBlocked: true,
     dynamicSubmitMockedCastVoteCount: dynamicSubmitSmoke.castVoteCalls.length,
     dynamicSubmitTxHash: dynamicSubmitSmoke.result.txHash,
+    adminDemoModeGuideVisible: true,
+    adminDemoModeStaticDetected: demoModeHelperChecks.staticMode,
+    adminDemoModeDynamicDetected: demoModeHelperChecks.dynamicMode,
+    adminModeButtonsFilledInputWithoutTx: true,
+    setMerkleRootConfirmationStillVisible: setMerkleRootConfirmationSmoke.confirmationVisible,
     runtimeCheckTextVisible: true,
   };
 

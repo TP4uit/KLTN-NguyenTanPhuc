@@ -117,10 +117,11 @@ export function AdminMerkleRootAlignment({
             Election ID: <span className="font-mono font-semibold text-slate-800">{currentElectionId}</span>
           </p>
           <p className="mt-2 max-w-4xl text-sm leading-6 text-slate-600">
-            Use the static proof fixture root for the current browser proof demo.
+            Compare the live contract root with the two supported local demo roots.
           </p>
           <p className="mt-1 max-w-4xl text-sm leading-6 text-amber-800">
-            Do not use the Poseidon preview-only root as contract root until matching Merkle paths and proof inputs are generated in Goal 5.3.
+            Static Fixture Mode supports the seeded fixture/static submit path. Dynamic Poseidon Mode supports guarded
+            Dynamic submit when readiness succeeds.
           </p>
         </div>
 
@@ -159,11 +160,15 @@ export function AdminMerkleRootAlignment({
                 <p className="text-sm font-medium text-slate-600">Contract root</p>
                 {alignment.contractMatchesFixture ? (
                   <span className="rounded-full border border-emerald-200 bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-700">
-                    Proof-compatible
+                    Static mode
+                  </span>
+                ) : alignment.contractMatchesPreview ? (
+                  <span className="rounded-full border border-emerald-200 bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-700">
+                    Dynamic mode
                   </span>
                 ) : (
                   <span className="rounded-full border border-amber-200 bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-700">
-                    Not proof-compatible
+                    Custom or unset
                   </span>
                 )}
               </div>
@@ -176,7 +181,7 @@ export function AdminMerkleRootAlignment({
               <div className="mb-2 flex flex-wrap items-center gap-2">
                 <p className="text-sm font-medium text-emerald-700">Static proof fixture root</p>
                 <span className="rounded-full border border-emerald-200 bg-white px-2.5 py-1 text-xs font-semibold text-emerald-700">
-                  Proof-compatible
+                  Static Fixture Mode
                 </span>
               </div>
               <p className="break-all font-mono text-sm font-semibold text-slate-950" title={alignment.fixtureRoot}>
@@ -186,9 +191,9 @@ export function AdminMerkleRootAlignment({
 
             <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
               <div className="mb-2 flex flex-wrap items-center gap-2">
-                <p className="text-sm font-medium text-amber-700">Poseidon preview-only root</p>
+                <p className="text-sm font-medium text-amber-700">Dynamic Poseidon preview root</p>
                 <span className="rounded-full border border-amber-200 bg-white px-2.5 py-1 text-xs font-semibold text-amber-700">
-                  Preview-only
+                  Dynamic Poseidon Mode
                 </span>
               </div>
               <p className="break-all font-mono text-sm font-semibold text-slate-950" title={alignment.previewRoot}>
@@ -205,9 +210,12 @@ export function AdminMerkleRootAlignment({
           </div>
 
           <div className="mb-6 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3">
-            <p className="text-sm font-medium text-blue-700">Recommended root</p>
+            <p className="text-sm font-medium text-blue-700">Static fixture root</p>
             <p className="mt-1 break-all font-mono text-sm font-semibold text-slate-950" title={alignment.recommendedRoot}>
               {alignment.recommendedRoot}
+            </p>
+            <p className="mt-1 text-xs text-blue-700">
+              Use this for Static Fixture Mode. Use the dynamic preview root above for Dynamic Poseidon Mode.
             </p>
           </div>
 
