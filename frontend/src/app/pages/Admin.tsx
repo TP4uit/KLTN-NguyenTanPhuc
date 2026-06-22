@@ -1,5 +1,6 @@
 import { AlertCircle, AlertTriangle, CheckCircle2, KeyRound, Loader2, Lock, RefreshCw, Shield, Wallet, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { AdminDynamicProofInputPreview } from "../components/AdminDynamicProofInputPreview";
 import { AdminMerkleRootAlignment } from "../components/AdminMerkleRootAlignment";
 import { AdminRegistryPreview } from "../components/AdminRegistryPreview";
 import { AdminVoterRegistrationManager } from "../components/AdminVoterRegistrationManager";
@@ -408,6 +409,7 @@ export function Admin() {
 
         <AdminVoterRegistrationManager />
         <AdminRegistryPreview />
+        <AdminDynamicProofInputPreview />
 
         <AdminMerkleRootAlignment
           contractRoot={lifecycle.merkleRoot}

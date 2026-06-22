@@ -326,6 +326,20 @@ try {
         reviewedAt: "2026-06-22T00:01:00.000Z",
       },
     ]))});
+    localStorage.setItem("zkvote.localIdentitySecrets", ${JSON.stringify(JSON.stringify([
+      {
+        userId: "seeded-voter",
+        electionId: registryFixture.selectedElectionId,
+        secret: registryFixture.selectedVoterSecret,
+        createdAt: "2026-06-22T00:00:00.000Z",
+      },
+      {
+        userId: "new-voter",
+        electionId: registryFixture.selectedElectionId,
+        secret: "987654321123456789",
+        createdAt: "2026-06-22T00:00:00.000Z",
+      },
+    ]))});
     true;
   `);
 
@@ -427,12 +441,81 @@ try {
   `);
   await waitForExpression(client, `document.body.innerText.includes("Registry preview JSON download prepared.")`);
 
+  await waitForExpression(client, `document.body.innerText.includes("Dynamic Proof Input Preview")`);
+  await client.evaluate(`
+    (() => {
+      const button = [...document.querySelectorAll("button")].find((candidate) =>
+        candidate.textContent.includes("Build preview")
+      );
+      button.click();
+      return true;
+    })()
+  `);
+  await waitForExpression(
+    client,
+    `document.body.innerText.includes("Dynamic proof input artifact preview generated.")`,
+    20_000,
+  );
+  await waitForExpression(
+    client,
+    `document.body.innerText.includes("pathElements") && document.body.innerText.includes("nullifierHashPreview")`,
+  );
+
+  await client.evaluate(`
+    (() => {
+      const button = [...document.querySelectorAll("button")].find((candidate) =>
+        candidate.textContent.trim() === "Copy JSON"
+      );
+      button.click();
+      return true;
+    })()
+  `);
+  await waitForExpression(
+    client,
+    `Boolean(window.__registryPreviewCopiedText) && window.__registryPreviewCopiedText.includes("pathElements")`,
+  );
+
+  const dynamicCopiedText = await client.evaluate("window.__registryPreviewCopiedText");
+  const dynamicCopiedJson = JSON.parse(dynamicCopiedText);
+  const dynamicCopiedFieldNames = collectJsonFieldNames(dynamicCopiedJson);
+  const dynamicForbiddenFieldName = dynamicCopiedFieldNames.find((fieldName) =>
+    fieldName !== "nullifierhashpreview" &&
+    FORBIDDEN_PRIVATE_FIELD_PARTS.some((forbiddenPart) => fieldName.includes(forbiddenPart)),
+  );
+
+  if (dynamicForbiddenFieldName) {
+    throw new Error(`Copied dynamic artifact JSON contains forbidden field name: ${dynamicForbiddenFieldName}.`);
+  }
+
+  if (
+    !Array.isArray(dynamicCopiedJson.pathElements) ||
+    dynamicCopiedJson.pathElements.length !== 3 ||
+    !Array.isArray(dynamicCopiedJson.pathIndices) ||
+    dynamicCopiedJson.pathIndices.length !== 3 ||
+    !/^\d+$/.test(dynamicCopiedJson.nullifierHashPreview ?? "")
+  ) {
+    throw new Error("Copied dynamic artifact JSON did not include the expected path/nullifier preview shape.");
+  }
+
+  await client.evaluate(`
+    (() => {
+      const button = [...document.querySelectorAll("button")].find((candidate) =>
+        candidate.textContent.trim() === "Download JSON"
+      );
+      button.click();
+      return true;
+    })()
+  `);
+  await waitForExpression(client, `document.body.innerText.includes("Dynamic artifact preview JSON download prepared.")`);
+
   const summary = {
     passed: true,
     appUrl,
     compatibleLeafCount: copiedJson.compatibleLeafCount,
     incompatibleLeafCount: copiedJson.incompatibleLeafCount,
     copiedJsonPrivateFieldCheck: "passed",
+    dynamicArtifactPrivateFieldCheck: "passed",
+    dynamicArtifactPathElements: dynamicCopiedJson.pathElements.length,
     runtimeCheckTextVisible: true,
   };
 
