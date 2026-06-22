@@ -22,7 +22,7 @@ import {
 type PreviewStatus = "idle" | "loading" | "success" | "error";
 
 const POSEIDON_WARNING =
-  "This preview is generated from approved local commitments only. It is not yet the Poseidon registry used by the ZK circuit and must not be used as the contract Merkle root until Goal 3.2/3.3 generates matching proof inputs.";
+  "This Poseidon preview root is generated from approved local Poseidon commitments only. It must not be used as the contract root until Goal 5.3 creates matching Merkle paths/proof inputs.";
 
 function formatLongValue(value: string) {
   if (value.length <= 28) {
@@ -167,10 +167,38 @@ export function AdminRegistryPreview() {
 
       {preview ? (
         <>
-          <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
+          <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-6">
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+              <p className="text-sm font-medium text-slate-500">Hash function</p>
+              <p className="mt-1 text-2xl font-bold text-slate-950">{preview.hashFunction}</p>
+            </div>
             <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
               <p className="text-sm font-medium text-slate-500">Approved commitments</p>
               <p className="mt-1 text-2xl font-bold text-slate-950">{preview.approvedCount}</p>
+            </div>
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+              <p className="text-sm font-medium text-emerald-700">Compatible</p>
+              <p className="mt-1 text-2xl font-bold text-emerald-900">{preview.compatibleLeafCount}</p>
+            </div>
+            <div
+              className={`rounded-xl border p-4 ${
+                preview.incompatibleLeafCount > 0 ? "border-amber-200 bg-amber-50" : "border-slate-200 bg-slate-50"
+              }`}
+            >
+              <p
+                className={`text-sm font-medium ${
+                  preview.incompatibleLeafCount > 0 ? "text-amber-700" : "text-slate-500"
+                }`}
+              >
+                Incompatible
+              </p>
+              <p
+                className={`mt-1 text-2xl font-bold ${
+                  preview.incompatibleLeafCount > 0 ? "text-amber-900" : "text-slate-950"
+                }`}
+              >
+                {preview.incompatibleLeafCount}
+              </p>
             </div>
             <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
               <p className="text-sm font-medium text-slate-500">Tree depth</p>
@@ -195,7 +223,12 @@ export function AdminRegistryPreview() {
           </div>
 
           <div className="mb-6 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
-            <p className="text-sm font-medium text-slate-500">merkleRootPreview</p>
+            <div className="mb-1 flex flex-wrap items-center gap-2">
+              <p className="text-sm font-medium text-slate-500">Poseidon preview-only root</p>
+              <span className="rounded-full border border-amber-200 bg-white px-2.5 py-1 text-xs font-semibold text-amber-700">
+                leaf: {preview.leafFormula}
+              </span>
+            </div>
             <p className="mt-1 break-all font-mono text-sm font-semibold text-slate-950">
               {preview.merkleRootPreview}
             </p>
@@ -213,16 +246,17 @@ export function AdminRegistryPreview() {
             ))}
           </div>
 
-          {preview.approvedCount === 0 ? (
+          {preview.compatibleLeafCount === 0 ? (
             <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-8 text-center text-sm text-slate-600">
-              No approved commitments exist for this election yet.
+              No Poseidon-compatible approved commitments exist for this election yet.
             </div>
           ) : (
-            <div className="overflow-x-auto rounded-xl border border-slate-200">
+            <div className="mb-6 overflow-x-auto rounded-xl border border-slate-200">
               <table className="min-w-full divide-y divide-slate-200 text-sm">
                 <thead className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
                   <tr>
                     <th className="px-4 py-3">Registration</th>
+                    <th className="px-4 py-3">Scheme</th>
                     <th className="px-4 py-3">Identity commitment</th>
                   </tr>
                 </thead>
@@ -231,10 +265,54 @@ export function AdminRegistryPreview() {
                     <tr key={leaf.registrationId}>
                       <td className="px-4 py-4 font-mono text-xs text-slate-600">{leaf.registrationId}</td>
                       <td className="px-4 py-4">
+                        <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">
+                          {leaf.commitmentScheme}
+                        </span>
+                      </td>
+                      <td className="px-4 py-4">
                         <span className="font-mono text-xs text-slate-900" title={leaf.identityCommitment}>
                           {formatLongValue(leaf.identityCommitment)}
                         </span>
                       </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {preview.incompatibleLeaves.length > 0 && (
+            <div className="overflow-x-auto rounded-xl border border-amber-200">
+              <div className="border-b border-amber-200 bg-amber-50 px-4 py-3">
+                <p className="text-sm font-semibold text-amber-900">Incompatible approved commitments</p>
+                <p className="mt-1 text-xs text-amber-800">
+                  These approvals are excluded from Poseidon preview leaves.
+                </p>
+              </div>
+              <table className="min-w-full divide-y divide-amber-100 text-sm">
+                <thead className="bg-white text-left text-xs font-semibold uppercase tracking-wide text-amber-700">
+                  <tr>
+                    <th className="px-4 py-3">Registration</th>
+                    <th className="px-4 py-3">Scheme</th>
+                    <th className="px-4 py-3">Identity commitment</th>
+                    <th className="px-4 py-3">Reason</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-amber-100 bg-white">
+                  {preview.incompatibleLeaves.map((leaf) => (
+                    <tr key={leaf.registrationId}>
+                      <td className="px-4 py-4 font-mono text-xs text-slate-600">{leaf.registrationId}</td>
+                      <td className="px-4 py-4">
+                        <span className="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700">
+                          {leaf.commitmentScheme}
+                        </span>
+                      </td>
+                      <td className="px-4 py-4">
+                        <span className="font-mono text-xs text-slate-900" title={leaf.identityCommitment}>
+                          {formatLongValue(leaf.identityCommitment)}
+                        </span>
+                      </td>
+                      <td className="px-4 py-4 text-xs text-slate-700">{leaf.reason}</td>
                     </tr>
                   ))}
                 </tbody>

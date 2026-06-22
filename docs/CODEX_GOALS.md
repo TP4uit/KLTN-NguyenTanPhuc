@@ -50,7 +50,7 @@ Verification notes:
 Verification notes:
 
 - Registry Preview is admin review state only. It does not update contracts, proof artifacts, browser proof generation, deployment scripts, or `Election.castVote`.
-- The preview root is generated from approved local identity commitments with deterministic SHA-256-derived demo hashes, not the Poseidon registry used by the ZK circuit.
+- Registry Preview is now superseded by the Goal 5 Poseidon preview path; it remains preview-only and does not update contracts or proof inputs.
 - Registry preview JSON includes election metadata, preview tree levels, approved leaves, and warnings only; it excludes identity secrets, passwords, vote choices, candidate choices, proofs, nullifiers, and transaction hashes.
 - Headless Chrome smoke test passed for approved voter registration, Registry Preview display, merkleRootPreview generation, copy JSON, download JSON, safe JSON shape, forbidden-field exclusion, and empty preview state.
 - Headless Chrome smoke test passed for Registry Preview overflow warning when approved commitments exceed capacity.
@@ -84,6 +84,7 @@ Verification notes:
 ## Goal 5 - Dynamic Poseidon Registry and Proof Inputs
 
 - [x] Add browser Poseidon identity commitment derivation.
+- [x] Convert registry preview to Poseidon tree over approved commitments.
 
 Verification notes:
 
@@ -91,5 +92,10 @@ Verification notes:
 - The seeded demo voter continues to use the static registry fixture secret and commitment, marked `FIXTURE_POSEIDON`, and remains the only proof fixture-compatible onboarding path.
 - Existing registrations without `commitmentScheme` load safely as `SHA256_DEMO`, unless their commitment matches the static fixture commitment.
 - Registration evidence includes `commitmentScheme` and still excludes secrets, passwords, vote choices, proofs, nullifiers, and transaction hashes.
+- Admin Registry Preview now builds depth-3, capacity-8 Poseidon levels from approved `POSEIDON` and `FIXTURE_POSEIDON` `identityCommitment` leaves, sorted by commitment then registration ID.
+- Approved `SHA256_DEMO` registrations are excluded from Poseidon preview leaves and reported as incompatible with a reason.
+- Preview JSON includes hash function, leaf formula, compatible/incompatible counts, compatible leaves, incompatible leaves, levels, and warnings only; it excludes secrets, passwords, vote choices, proofs, nullifiers, and transaction hashes.
+- Merkle Root Alignment still recommends the static proof fixture root because `browserProof.ts` continues to use `registry.local.json`; the Poseidon preview-only root remains unsafe for the contract root until dynamic Merkle paths/proof inputs are generated.
 - `cd frontend && npm run build` passed.
+- Vite SSR smoke test passed for seeded `FIXTURE_POSEIDON`, new `POSEIDON`, missing-scheme `SHA256_DEMO` exclusion, compatible/incompatible counts, direct identity-commitment leaf level, zero padding, warning text, and redacted preview JSON field names.
 - Headless Chrome smoke test passed for fixture voter `FIXTURE_POSEIDON`, new voter `POSEIDON`, missing-scheme `SHA256_DEMO`, evidence scheme/redaction checks, and disabled vote buttons for approved-but-not-fixture-compatible voters.

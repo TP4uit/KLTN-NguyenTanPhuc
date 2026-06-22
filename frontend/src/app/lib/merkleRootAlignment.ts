@@ -73,7 +73,7 @@ export async function buildMerkleRootAlignment(contractRoot: string): Promise<Me
 
   if (contractMatchesPreview && !contractMatchesFixture) {
     warnings.push(
-      "The contract root matches the registry preview root, but the current browser proof demo still expects the static fixture root.",
+      "The contract root matches the Poseidon preview-only root, but the current browser proof demo still expects the static fixture root.",
     );
   }
 
@@ -83,7 +83,7 @@ export async function buildMerkleRootAlignment(contractRoot: string): Promise<Me
 
   if (previewRoot !== fixtureRoot) {
     warnings.push(
-      "Registry preview root is preview-only and is not proof-compatible until matching Poseidon proof inputs are generated later.",
+      "Poseidon preview-only root is not proof-compatible until matching Merkle paths and proof inputs are generated later.",
     );
   }
 
@@ -146,7 +146,7 @@ export function classifyOpenElectionReadiness(
       severity: "warning",
       label: "Preview root selected; browser proof demo not ready",
       warnings: [
-        "The contract root matches the registry preview root, but the current browser proof demo will not work yet.",
+        "The contract root matches the Poseidon preview-only root, but the current browser proof demo will not work yet.",
       ],
     };
   }
@@ -155,7 +155,7 @@ export function classifyOpenElectionReadiness(
     canOpenSafely: false,
     severity: "warning",
     label: "Custom root may break browser proof demo",
-    warnings: ["The contract root does not match the static fixture or registry preview root."],
+    warnings: ["The contract root does not match the static fixture or Poseidon preview-only root."],
   };
 }
 
@@ -182,7 +182,7 @@ export function classifyMerkleRootInput(
   if (alignment && rootsMatch(normalizedRoot, alignment.previewRoot)) {
     return {
       kind: "PREVIEW",
-      label: "Preview-only root",
+      label: "Poseidon preview-only root",
       warning: "Browser proof voting may fail because current proof generation expects the static fixture root.",
     };
   }

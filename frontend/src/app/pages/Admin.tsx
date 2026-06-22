@@ -457,7 +457,7 @@ export function Admin() {
                     disabled={!alignment || isBusy}
                     className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-left text-sm font-semibold text-amber-800 transition hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-60"
                   >
-                    Use registry preview root
+                    Use Poseidon preview-only root
                     <span className="mt-1 block text-xs font-normal text-amber-700">
                       Preview-only, not proof-compatible yet
                     </span>

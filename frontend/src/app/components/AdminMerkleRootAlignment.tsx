@@ -118,7 +118,7 @@ export function AdminMerkleRootAlignment({
             Use the static proof fixture root for the current browser proof demo.
           </p>
           <p className="mt-1 max-w-4xl text-sm leading-6 text-amber-800">
-            Do not use registry preview root as contract root until matching Poseidon proof inputs are generated in a later goal.
+            Do not use the Poseidon preview-only root as contract root until matching Merkle paths and proof inputs are generated in Goal 5.3.
           </p>
         </div>
 
@@ -184,7 +184,7 @@ export function AdminMerkleRootAlignment({
 
             <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
               <div className="mb-2 flex flex-wrap items-center gap-2">
-                <p className="text-sm font-medium text-amber-700">Registry preview root</p>
+                <p className="text-sm font-medium text-amber-700">Poseidon preview-only root</p>
                 <span className="rounded-full border border-amber-200 bg-white px-2.5 py-1 text-xs font-semibold text-amber-700">
                   Preview-only
                 </span>
