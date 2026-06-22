@@ -65,6 +65,7 @@ Verification notes:
 ## Goal 4 - Results and Audit UX
 
 - [x] Make Results page honest about on-chain tally state.
+- [x] Add Results audit export.
 
 Verification notes:
 
@@ -73,3 +74,5 @@ Verification notes:
 - Local approved voter count is labeled as local demo registration metadata; turnout is only shown as local demo turnout when both on-chain votes and local approved voters are available.
 - Preview/mock tallies are not used as fallback on read failure; connection and contract errors remain visible.
 - Headless Chrome smoke test passed for disconnected `/results`, zero on-chain tallies, `getVotes` calls for candidates 1-4, and refreshed mocked on-chain tally/block updates. A real localhost chain was not running for an end-to-end `castVote` smoke.
+- Results Audit Export emits public tally data, local demo approved-voter counts, source/block/lifecycle metadata, candidate sum checks, and warnings only; it excludes voter identities, secrets, passwords, vote choices, proofs, nullifiers, private wallet data, and transaction hashes.
+- Headless Chrome smoke test passed for disabled disconnected export state, mocked on-chain audit summary, copy JSON, download JSON, safe filename, forbidden-field exclusion, and candidate sum equaling `totalVotes`.

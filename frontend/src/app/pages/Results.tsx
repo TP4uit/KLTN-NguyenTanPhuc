@@ -1,11 +1,27 @@
 import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { Activity, AlertCircle, Box, CheckCircle2, Loader2, RefreshCw, Users, Wallet } from "lucide-react";
+import {
+  Activity,
+  AlertCircle,
+  Box,
+  CheckCircle2,
+  Clipboard,
+  Download,
+  Loader2,
+  RefreshCw,
+  Users,
+  Wallet,
+} from "lucide-react";
 import { motion } from "motion/react";
 import { useEffect, useMemo, useState } from "react";
 import { ImageWithFallback } from "../components/figma/ImageWithFallback";
 import { DashboardHeader } from "../components/DashboardHeader";
 import { CANDIDATES, type CandidateMetadata } from "../lib/candidates";
-import { readOnChainElectionResults, type ElectionResultsSnapshot } from "../lib/electionResults";
+import {
+  buildResultsAuditSnapshot,
+  readOnChainElectionResults,
+  validateResultsAuditSnapshot,
+  type ElectionResultsSnapshot,
+} from "../lib/electionResults";
 import {
   connectLocalElection,
   formatAccount,
@@ -15,6 +31,7 @@ import {
   type ElectionLifecycle,
 } from "../lib/localElection";
 import { buildRegistrationEvidence, VOTER_REGISTRATIONS_CHANGED_EVENT } from "../lib/localVoterRegistration";
+import { copyTextToClipboard, downloadJson } from "../lib/registryPreview";
 
 type ResultStatus = "idle" | "loading" | "success" | "error";
 
@@ -46,12 +63,23 @@ export function Results() {
   const [status, setStatus] = useState<ResultStatus>("idle");
   const [statusMessage, setStatusMessage] = useState("Connect MetaMask to load on-chain localhost tallies.");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [auditMessage, setAuditMessage] = useState<string | null>(null);
   const [electionLifecycle, setElectionLifecycle] = useState<ElectionLifecycle>(getMetadataElectionLifecycle());
   const [localApprovedVoters, setLocalApprovedVoters] = useState<number | null>(() => readLocalApprovedVoters());
   const isOnChain = snapshot?.source === "on-chain";
   const totalVotes = snapshot?.totalVotes ?? null;
   const latestBlock = snapshot?.latestBlock ?? null;
   const isRefreshing = status === "loading";
+  const auditSnapshot = useMemo(
+    () => (snapshot ? buildResultsAuditSnapshot(snapshot, localApprovedVoters) : null),
+    [localApprovedVoters, snapshot],
+  );
+  const auditValidation = useMemo(
+    () => (auditSnapshot ? validateResultsAuditSnapshot(auditSnapshot) : null),
+    [auditSnapshot],
+  );
+  const auditJson = useMemo(() => (auditSnapshot ? JSON.stringify(auditSnapshot, null, 2) : ""), [auditSnapshot]);
+  const canExportAudit = Boolean(auditSnapshot && auditValidation?.isValid);
 
   const displayResults = useMemo<DisplayCandidate[]>(() => {
     const byCandidateId = new Map(snapshot?.results.map((candidate) => [candidate.candidateId, candidate.votes]) ?? []);
@@ -83,6 +111,7 @@ export function Results() {
   const loadResults = async (requestAccount: boolean) => {
     setStatus("loading");
     setErrorMessage(null);
+    setAuditMessage(null);
 
     try {
       const connection = requestAccount ? await connectLocalElection() : await getConnectedLocalElection();
@@ -136,6 +165,30 @@ export function Results() {
   };
 
   const formatVotes = (votes: number | null) => (isOnChain && votes !== null ? votes.toLocaleString() : "Not loaded");
+
+  const handleCopyAuditJson = async () => {
+    if (!auditJson || !canExportAudit) {
+      setAuditMessage("Load on-chain tallies before exporting audit JSON.");
+      return;
+    }
+
+    try {
+      await copyTextToClipboard(auditJson);
+      setAuditMessage("Audit JSON copied.");
+    } catch (error) {
+      setAuditMessage(error instanceof Error ? error.message : "Unable to copy audit JSON.");
+    }
+  };
+
+  const handleDownloadAuditJson = () => {
+    if (!auditJson || !canExportAudit) {
+      setAuditMessage("Load on-chain tallies before exporting audit JSON.");
+      return;
+    }
+
+    downloadJson(`zkvote-results-audit-${localElection.electionId}.json`, auditJson);
+    setAuditMessage("Audit JSON download started.");
+  };
 
   const CustomTooltip = ({ active, payload }: ChartTooltipProps) => {
     if (!active || !payload?.length) {
@@ -328,7 +381,7 @@ export function Results() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.4 }}
-          className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"
+          className="mb-8 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"
         >
           <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50/50 px-6 py-5">
             <h2 className="text-lg font-bold text-slate-900">Candidate Tallies</h2>
@@ -397,6 +450,133 @@ export function Results() {
             })}
           </div>
         </motion.div>
+
+        <motion.section
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.5 }}
+          className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8"
+        >
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div>
+              <h2 className="text-xl font-bold text-slate-900">Audit Export</h2>
+              <p className="mt-2 max-w-3xl text-sm leading-relaxed text-slate-600">
+                This export contains public tally data and local demo registration counts only. It does not contain voter
+                identities, secrets, proofs, nullifiers, or private wallet data.
+              </p>
+              {!canExportAudit && (
+                <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                  Load on-chain tallies before exporting audit JSON.
+                </p>
+              )}
+            </div>
+
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <button
+                onClick={handleCopyAuditJson}
+                disabled={!canExportAudit}
+                className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <Clipboard className="h-4 w-4" />
+                Copy audit JSON
+              </button>
+              <button
+                onClick={handleDownloadAuditJson}
+                disabled={!canExportAudit}
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <Download className="h-4 w-4" />
+                Download audit JSON
+              </button>
+            </div>
+          </div>
+
+          <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-4">
+            <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+              <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Source</p>
+              <p className="mt-1 text-lg font-bold text-slate-900">{auditSnapshot?.source ?? "Not loaded"}</p>
+            </div>
+            <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+              <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Latest block</p>
+              <p className="mt-1 text-lg font-bold text-slate-900">
+                {auditSnapshot ? auditSnapshot.latestBlock.toLocaleString() : "Not loaded"}
+              </p>
+            </div>
+            <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+              <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Total votes</p>
+              <p className="mt-1 text-lg font-bold text-slate-900">
+                {auditSnapshot ? auditSnapshot.totalVotes.toLocaleString() : "Not loaded"}
+              </p>
+            </div>
+            <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+              <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Candidate sum check</p>
+              <p
+                className={`mt-1 text-lg font-bold ${
+                  auditSnapshot?.checks.totalMatchesCandidateSum ? "text-emerald-700" : "text-slate-900"
+                }`}
+              >
+                {auditSnapshot ? (auditSnapshot.checks.totalMatchesCandidateSum ? "Passed" : "Failed") : "Not loaded"}
+              </p>
+            </div>
+          </div>
+
+          {auditSnapshot && (
+            <div className="mt-5 grid grid-cols-1 gap-4 lg:grid-cols-2">
+              <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm">
+                <div className="font-semibold text-slate-900">Checks</div>
+                <dl className="mt-3 space-y-2">
+                  <div className="flex justify-between gap-4">
+                    <dt className="text-slate-500">totalMatchesCandidateSum</dt>
+                    <dd className={auditSnapshot.checks.totalMatchesCandidateSum ? "font-semibold text-emerald-700" : "font-semibold text-red-700"}>
+                      {String(auditSnapshot.checks.totalMatchesCandidateSum)}
+                    </dd>
+                  </div>
+                  <div className="flex justify-between gap-4">
+                    <dt className="text-slate-500">hasOnChainSource</dt>
+                    <dd className={auditSnapshot.checks.hasOnChainSource ? "font-semibold text-emerald-700" : "font-semibold text-red-700"}>
+                      {String(auditSnapshot.checks.hasOnChainSource)}
+                    </dd>
+                  </div>
+                  <div className="flex justify-between gap-4">
+                    <dt className="text-slate-500">hasLiveLifecycle</dt>
+                    <dd className={auditSnapshot.checks.hasLiveLifecycle ? "font-semibold text-emerald-700" : "font-semibold text-red-700"}>
+                      {String(auditSnapshot.checks.hasLiveLifecycle)}
+                    </dd>
+                  </div>
+                </dl>
+              </div>
+
+              <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm">
+                <div className="font-semibold text-slate-900">Warnings</div>
+                <ul className="mt-3 space-y-2 text-slate-600">
+                  {auditSnapshot.warnings.map((warning) => (
+                    <li key={warning} className="flex items-start gap-2">
+                      <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+                      <span>{warning}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          )}
+
+          {auditValidation && auditValidation.errors.length > 0 && (
+            <div className="mt-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              <div className="font-semibold">Audit snapshot is not valid.</div>
+              <ul className="mt-2 list-disc space-y-1 pl-5">
+                {auditValidation.errors.map((error) => (
+                  <li key={error}>{error}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {auditMessage && (
+            <div className="mt-5 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+              {auditMessage}
+            </div>
+          )}
+        </motion.section>
       </main>
     </div>
   );
