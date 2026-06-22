@@ -61,3 +61,15 @@ Verification notes:
 - Admin `openElection` now shows Open Election Readiness before lifecycle buttons and requires in-page confirmation before submitting the unchanged `openElection` contract call.
 - Open Election Readiness blocks non-Registration or zero-root states, marks the static proof fixture root as browser proof-compatible, and warns for preview/custom roots because preview roots are not proof-compatible until matching Poseidon proof inputs are generated.
 - Headless Chrome smoke test passed for readiness display, fixture success, preview/custom warnings, `openElection` cancel with zero transactions, confirmed `openElection` selector, and `closeElection` from Open state.
+
+## Goal 4 - Results and Audit UX
+
+- [x] Make Results page honest about on-chain tally state.
+
+Verification notes:
+
+- Results candidate metadata is shared with Dashboard, while vote counts now load only from contract `getVotes(candidateId)` reads.
+- Before a successful contract read, `/results` shows candidate metadata with "Not loaded" or "Not connected" states instead of fake live totals, turnout, trend, or block values.
+- Local approved voter count is labeled as local demo registration metadata; turnout is only shown as local demo turnout when both on-chain votes and local approved voters are available.
+- Preview/mock tallies are not used as fallback on read failure; connection and contract errors remain visible.
+- Headless Chrome smoke test passed for disconnected `/results`, zero on-chain tallies, `getVotes` calls for candidates 1-4, and refreshed mocked on-chain tally/block updates. A real localhost chain was not running for an end-to-end `castVote` smoke.
