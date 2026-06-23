@@ -25,6 +25,7 @@ import {
 import {
   connectLocalElection,
   formatAccount,
+  formatLongValue,
   getConnectedLocalElection,
   getMetadataElectionLifecycle,
   localElection,
@@ -55,6 +56,14 @@ function readLocalApprovedVoters() {
   } catch {
     return null;
   }
+}
+
+function formatDemoMode(mode?: string) {
+  if (!mode) {
+    return "Not loaded";
+  }
+
+  return mode.replace(/_/g, " ");
 }
 
 export function Results() {
@@ -336,6 +345,41 @@ export function Results() {
           </motion.div>
         </div>
 
+        <section className="mb-8 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div>
+              <h2 className="text-lg font-bold text-slate-900">Demo Mode / Merkle Root</h2>
+              <p className="mt-2 max-w-4xl text-sm text-slate-600">
+                Tallies are read from the contract. Demo mode and Merkle root describe contract-level audit context
+                only; they are not per-vote provenance.
+              </p>
+            </div>
+            <span className="inline-flex w-fit rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-700">
+              {formatDemoMode(snapshot?.demoMode)}
+            </span>
+          </div>
+          <div className="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-3">
+            <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+              <p className="text-sm font-medium text-slate-500">Contract Merkle root</p>
+              <p className="mt-1 break-all font-mono text-sm font-semibold text-slate-900" title={snapshot?.merkleRoot}>
+                {snapshot ? formatLongValue(snapshot.merkleRoot) : "Not loaded"}
+              </p>
+            </div>
+            <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+              <p className="text-sm font-medium text-slate-500">Matches Static Fixture</p>
+              <p className={`mt-1 text-sm font-semibold ${snapshot?.rootMatchesStaticFixture ? "text-emerald-700" : "text-slate-700"}`}>
+                {snapshot ? (snapshot.rootMatchesStaticFixture ? "Yes" : "No") : "Not loaded"}
+              </p>
+            </div>
+            <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+              <p className="text-sm font-medium text-slate-500">Matches Dynamic Poseidon</p>
+              <p className={`mt-1 text-sm font-semibold ${snapshot?.rootMatchesDynamicPoseidon ? "text-emerald-700" : "text-slate-700"}`}>
+                {snapshot ? (snapshot.rootMatchesDynamicPoseidon ? "Yes" : "No") : "Not loaded"}
+              </p>
+            </div>
+          </div>
+        </section>
+
         {isOnChain && totalVotes === 0 && (
           <div className="mb-8 rounded-2xl border border-blue-200 bg-blue-50 px-5 py-4 text-sm text-blue-800">
             <div className="font-semibold">No on-chain votes recorded yet.</div>
@@ -462,7 +506,8 @@ export function Results() {
               <h2 className="text-xl font-bold text-slate-900">Audit Export</h2>
               <p className="mt-2 max-w-3xl text-sm leading-relaxed text-slate-600">
                 This export contains public tally data and local demo registration counts only. It does not contain voter
-                identities, secrets, proofs, nullifiers, or private wallet data.
+                identities, secrets, proofs, raw nullifiers, transaction hashes, vote choices, or private wallet data.
+                Merkle root and demo mode are contract-level context only.
               </p>
               {!canExportAudit && (
                 <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
@@ -521,6 +566,17 @@ export function Results() {
           </div>
 
           {auditSnapshot && (
+            <div className="mt-5 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
+              <div className="font-semibold">Demo Mode / Merkle Root in Export</div>
+              <div className="mt-2 grid grid-cols-1 gap-2 md:grid-cols-3">
+                <span>demoMode: <span className="font-mono">{auditSnapshot.demoMode}</span></span>
+                <span title={auditSnapshot.merkleRoot}>merkleRoot: <span className="font-mono">{formatLongValue(auditSnapshot.merkleRoot)}</span></span>
+                <span>root mode match: {auditSnapshot.checks.rootMatchesDeclaredMode ? "passed" : "failed"}</span>
+              </div>
+            </div>
+          )}
+
+          {auditSnapshot && (
             <div className="mt-5 grid grid-cols-1 gap-4 lg:grid-cols-2">
               <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm">
                 <div className="font-semibold text-slate-900">Checks</div>
@@ -541,6 +597,24 @@ export function Results() {
                     <dt className="text-slate-500">hasLiveLifecycle</dt>
                     <dd className={auditSnapshot.checks.hasLiveLifecycle ? "font-semibold text-emerald-700" : "font-semibold text-red-700"}>
                       {String(auditSnapshot.checks.hasLiveLifecycle)}
+                    </dd>
+                  </div>
+                  <div className="flex justify-between gap-4">
+                    <dt className="text-slate-500">hasMerkleRoot</dt>
+                    <dd className={auditSnapshot.checks.hasMerkleRoot ? "font-semibold text-emerald-700" : "font-semibold text-red-700"}>
+                      {String(auditSnapshot.checks.hasMerkleRoot)}
+                    </dd>
+                  </div>
+                  <div className="flex justify-between gap-4">
+                    <dt className="text-slate-500">hasKnownDemoMode</dt>
+                    <dd className={auditSnapshot.checks.hasKnownDemoMode ? "font-semibold text-emerald-700" : "font-semibold text-red-700"}>
+                      {String(auditSnapshot.checks.hasKnownDemoMode)}
+                    </dd>
+                  </div>
+                  <div className="flex justify-between gap-4">
+                    <dt className="text-slate-500">rootMatchesDeclaredMode</dt>
+                    <dd className={auditSnapshot.checks.rootMatchesDeclaredMode ? "font-semibold text-emerald-700" : "font-semibold text-red-700"}>
+                      {String(auditSnapshot.checks.rootMatchesDeclaredMode)}
                     </dd>
                   </div>
                 </dl>

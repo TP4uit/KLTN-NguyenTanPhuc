@@ -126,3 +126,16 @@ Verification notes:
 - Browser smoke `npm run smoke:admin-mode-guide` passed for Admin guide mode display, static/dynamic/custom/unset detection, static/dynamic root-fill buttons, no automatic `setMerkleRoot` or `openElection` transaction from mode buttons, and existing `setMerkleRoot` confirmation behavior.
 - Browser smoke `npm run smoke:admin-runbook` passed for runbook display, reset confirmation/cancel behavior, registration-only reset event dispatch, reset-all intended key clearing, unrelated key preservation, no contract transaction calls, and empty registry/readiness handling.
 - Earlier Goal 5.1 Headless Chrome smoke test passed for fixture voter `FIXTURE_POSEIDON`, new voter `POSEIDON`, missing-scheme `SHA256_DEMO`, evidence scheme/redaction checks, and disabled vote buttons for approved-but-not-fixture-compatible voters.
+
+## Goal 6 - Results and Audit Mode Attribution
+
+- [x] Add Results/Audit demo mode attribution.
+
+Verification notes:
+
+- Results now reads the public contract `merkleRoot()` with on-chain candidate tallies and classifies it as `STATIC_FIXTURE`, `DYNAMIC_POSEIDON`, `CUSTOM`, or `UNSET` using the existing demo mode readiness helpers.
+- Results Audit Export includes public root/mode context, static and dynamic reference roots, root match flags, and root/mode checks only. It remains contract/root-level audit context, not per-vote provenance.
+- Audit import validation now requires the public Merkle root and demo mode metadata, rejects old audit JSON missing those fields with a clear error, and keeps rejecting forbidden private-field keys such as voter identities, identity commitments, proofs, nullifiers, vote choices, transaction hashes, wallet data, and private keys.
+- Audit live comparison now compares Merkle root, demo mode, root match flags, election metadata, total votes, and candidate tallies against current localhost contract reads.
+- `cd frontend && npm run build` passed.
+- Vite SSR smoke test `npm run smoke:results-audit` passed for static fixture root classification, dynamic Poseidon root classification, custom/zero root warnings, old audit JSON rejection, private-field rejection, root/mode mismatch detection, and exported JSON private-field redaction.

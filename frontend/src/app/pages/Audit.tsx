@@ -8,7 +8,7 @@ import {
   type ResultsAuditSnapshot,
   type ResultsAuditValidation,
 } from "../lib/electionResults";
-import { connectLocalElection, localElection } from "../lib/localElection";
+import { connectLocalElection, formatLongValue, localElection } from "../lib/localElection";
 
 type LiveComparisonStatus = "idle" | "loading" | "success" | "error";
 
@@ -31,7 +31,7 @@ function formatValue(value: string | number | null) {
   return value;
 }
 
-function createComparisonRows(auditSnapshot: ResultsAuditSnapshot, currentSnapshot: Awaited<ReturnType<typeof readOnChainElectionResults>>) {
+export function createComparisonRows(auditSnapshot: ResultsAuditSnapshot, currentSnapshot: Awaited<ReturnType<typeof readOnChainElectionResults>>) {
   const currentTalliesById = new Map(
     currentSnapshot.results.map((candidate) => [candidate.candidateId, candidate.votes]),
   );
@@ -53,6 +53,30 @@ function createComparisonRows(auditSnapshot: ResultsAuditSnapshot, currentSnapsh
       auditValue: auditSnapshot.contractAddress.toLowerCase(),
       currentValue: localElection.election.address.toLowerCase(),
       matches: auditSnapshot.contractAddress.toLowerCase() === localElection.election.address.toLowerCase(),
+    },
+    {
+      label: "Merkle root",
+      auditValue: auditSnapshot.merkleRoot,
+      currentValue: currentSnapshot.merkleRoot,
+      matches: auditSnapshot.merkleRoot === currentSnapshot.merkleRoot,
+    },
+    {
+      label: "Demo mode",
+      auditValue: auditSnapshot.demoMode,
+      currentValue: currentSnapshot.demoMode,
+      matches: auditSnapshot.demoMode === currentSnapshot.demoMode,
+    },
+    {
+      label: "Matches static fixture root",
+      auditValue: String(auditSnapshot.rootMatchesStaticFixture),
+      currentValue: String(currentSnapshot.rootMatchesStaticFixture),
+      matches: auditSnapshot.rootMatchesStaticFixture === currentSnapshot.rootMatchesStaticFixture,
+    },
+    {
+      label: "Matches dynamic Poseidon root",
+      auditValue: String(auditSnapshot.rootMatchesDynamicPoseidon),
+      currentValue: String(currentSnapshot.rootMatchesDynamicPoseidon),
+      matches: auditSnapshot.rootMatchesDynamicPoseidon === currentSnapshot.rootMatchesDynamicPoseidon,
     },
     {
       label: "Total votes",
@@ -186,7 +210,7 @@ export function Audit() {
           </p>
           <p className="max-w-4xl rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
             Audit verification uses public tally JSON only. It must not contain voter identities, secrets, proofs,
-            nullifiers, private wallet data, or transaction hashes.
+            raw nullifiers, vote choices, candidate choices, private wallet data, or transaction hashes.
           </p>
         </div>
 
@@ -286,6 +310,18 @@ export function Audit() {
                 </div>
               </div>
 
+              <div className="mt-5 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
+                <div className="font-semibold">Imported Demo Mode / Merkle Root</div>
+                <p className="mt-1 text-blue-800">
+                  This is contract/root-level context for the tally, not per-vote provenance.
+                </p>
+                <div className="mt-3 grid grid-cols-1 gap-2 md:grid-cols-3">
+                  <span>demoMode: <span className="font-mono">{auditSnapshot.demoMode}</span></span>
+                  <span title={auditSnapshot.merkleRoot}>merkleRoot: <span className="font-mono">{formatLongValue(auditSnapshot.merkleRoot)}</span></span>
+                  <span>declared mode check: {auditSnapshot.checks.rootMatchesDeclaredMode ? "passed" : "failed"}</span>
+                </div>
+              </div>
+
               <div className="mt-5 grid grid-cols-1 gap-4 lg:grid-cols-2">
                 <div className="rounded-xl border border-slate-200 px-4 py-3 text-sm">
                   <div className="font-semibold text-slate-900">Checks</div>
@@ -310,6 +346,24 @@ export function Audit() {
                       <dt className="text-slate-500">hasLiveLifecycle</dt>
                       <dd className={auditSnapshot.checks.hasLiveLifecycle ? "font-semibold text-emerald-700" : "font-semibold text-red-700"}>
                         {String(auditSnapshot.checks.hasLiveLifecycle)}
+                      </dd>
+                    </div>
+                    <div className="flex justify-between gap-4">
+                      <dt className="text-slate-500">hasMerkleRoot</dt>
+                      <dd className={auditSnapshot.checks.hasMerkleRoot ? "font-semibold text-emerald-700" : "font-semibold text-red-700"}>
+                        {String(auditSnapshot.checks.hasMerkleRoot)}
+                      </dd>
+                    </div>
+                    <div className="flex justify-between gap-4">
+                      <dt className="text-slate-500">hasKnownDemoMode</dt>
+                      <dd className={auditSnapshot.checks.hasKnownDemoMode ? "font-semibold text-emerald-700" : "font-semibold text-red-700"}>
+                        {String(auditSnapshot.checks.hasKnownDemoMode)}
+                      </dd>
+                    </div>
+                    <div className="flex justify-between gap-4">
+                      <dt className="text-slate-500">rootMatchesDeclaredMode</dt>
+                      <dd className={auditSnapshot.checks.rootMatchesDeclaredMode ? "font-semibold text-emerald-700" : "font-semibold text-red-700"}>
+                        {String(auditSnapshot.checks.rootMatchesDeclaredMode)}
                       </dd>
                     </div>
                   </dl>
@@ -380,7 +434,8 @@ export function Audit() {
             <div>
               <h2 className="text-xl font-bold text-slate-900">Live Comparison</h2>
               <p className="mt-1 max-w-3xl text-sm text-slate-500">
-                Optionally compare this audit JSON with current localhost contract reads. This reads tallies only and does not write to the contract.
+                Optionally compare this audit JSON with current localhost contract reads. This reads tallies, Merkle root,
+                and demo mode only; it does not write to the contract.
               </p>
             </div>
             <button

@@ -1,5 +1,6 @@
 import type { Contract } from "ethers";
 import { CANDIDATES, type CandidateMetadata } from "./candidates";
+import { buildDemoModeReadiness, type DemoMode } from "./demoModeReadiness";
 import { localElection, readLiveElectionLifecycle, type ElectionLifecycle } from "./localElection";
 
 export type ElectionResultsSource = "metadata" | "on-chain";
@@ -15,6 +16,12 @@ export type ElectionResultsSnapshot = {
   latestBlock: number;
   source: ElectionResultsSource;
   loadedAt: string;
+  merkleRoot: string;
+  demoMode: DemoMode;
+  staticFixtureRoot: string;
+  dynamicPreviewRoot: string;
+  rootMatchesStaticFixture: boolean;
+  rootMatchesDynamicPoseidon: boolean;
 };
 
 export type ResultsAuditCandidateTally = {
@@ -35,6 +42,12 @@ export type ResultsAuditSnapshot = {
   electionState: number;
   electionStateName: ElectionLifecycle["electionStateName"];
   latestBlock: number;
+  merkleRoot: string;
+  demoMode: DemoMode;
+  staticFixtureRoot: string;
+  dynamicPreviewRoot: string;
+  rootMatchesStaticFixture: boolean;
+  rootMatchesDynamicPoseidon: boolean;
   totalVotes: number;
   localApprovedVoters: number | null;
   localDemoTurnout: number | null;
@@ -43,6 +56,9 @@ export type ResultsAuditSnapshot = {
     totalMatchesCandidateSum: boolean;
     hasOnChainSource: boolean;
     hasLiveLifecycle: boolean;
+    hasMerkleRoot: boolean;
+    hasKnownDemoMode: boolean;
+    rootMatchesDeclaredMode: boolean;
   };
   warnings: string[];
 };
@@ -55,12 +71,15 @@ export type ResultsAuditValidation = {
 
 const FORBIDDEN_AUDIT_KEYS = [
   "identitySecret",
+  "voterIdentity",
+  "identityCommitment",
   "password",
   "voteChoice",
   "candidateChoice",
   "proof",
   "nullifier",
   "privateKey",
+  "wallet",
   "privateWalletData",
   "walletPrivateData",
   "walletAddress",
@@ -71,6 +90,8 @@ const FORBIDDEN_AUDIT_KEYS = [
 type BlockProvider = {
   getBlockNumber(): Promise<number>;
 };
+
+const DEMO_MODES = new Set<DemoMode>(["STATIC_FIXTURE", "DYNAMIC_POSEIDON", "CUSTOM", "UNSET"]);
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -94,6 +115,10 @@ function hasNullableNonNegativeInteger(value: Record<string, unknown>, key: stri
 
 function hasNullableNumber(value: Record<string, unknown>, key: string) {
   return value[key] === null || hasNumber(value, key);
+}
+
+function hasBoolean(value: Record<string, unknown>, key: string) {
+  return typeof value[key] === "boolean";
 }
 
 function collectForbiddenAuditKeys(value: unknown, path = "$"): string[] {
@@ -136,16 +161,72 @@ function voteCountToNumber(value: unknown) {
   throw new Error("Contract returned an unsupported vote count.");
 }
 
+function normalizeRoot(value: string) {
+  return value.trim();
+}
+
+function rootsMatch(left: string, right: string) {
+  return normalizeRoot(left) === normalizeRoot(right);
+}
+
+function isZeroRoot(root: string) {
+  const normalizedRoot = normalizeRoot(root);
+
+  if (!normalizedRoot) {
+    return true;
+  }
+
+  if (!/^\d+$/.test(normalizedRoot)) {
+    return false;
+  }
+
+  return BigInt(normalizedRoot) === 0n;
+}
+
+function isKnownDemoMode(value: unknown): value is DemoMode {
+  return typeof value === "string" && DEMO_MODES.has(value as DemoMode);
+}
+
+function rootMatchesDeclaredMode(input: {
+  demoMode: DemoMode;
+  merkleRoot: string;
+  staticFixtureRoot: string;
+  dynamicPreviewRoot: string;
+  rootMatchesStaticFixture: boolean;
+  rootMatchesDynamicPoseidon: boolean;
+}) {
+  if (input.demoMode === "STATIC_FIXTURE") {
+    return input.rootMatchesStaticFixture && rootsMatch(input.merkleRoot, input.staticFixtureRoot);
+  }
+
+  if (input.demoMode === "DYNAMIC_POSEIDON") {
+    return input.rootMatchesDynamicPoseidon && rootsMatch(input.merkleRoot, input.dynamicPreviewRoot);
+  }
+
+  if (input.demoMode === "CUSTOM") {
+    return (
+      !isZeroRoot(input.merkleRoot) &&
+      !input.rootMatchesStaticFixture &&
+      !input.rootMatchesDynamicPoseidon
+    );
+  }
+
+  return isZeroRoot(input.merkleRoot) && !input.rootMatchesStaticFixture && !input.rootMatchesDynamicPoseidon;
+}
+
 export async function readOnChainElectionResults(
   contract: Contract,
   provider: BlockProvider,
   candidates = CANDIDATES,
 ): Promise<ElectionResultsSnapshot> {
-  const [counts, lifecycle, latestBlock] = await Promise.all([
+  const [counts, lifecycle, latestBlock, rawMerkleRoot] = await Promise.all([
     Promise.all(candidates.map((candidate) => contract.getVotes(candidate.candidateId))),
     readLiveElectionLifecycle(contract),
     provider.getBlockNumber(),
+    contract.merkleRoot(),
   ]);
+  const merkleRoot = rawMerkleRoot.toString();
+  const modeReadiness = await buildDemoModeReadiness(merkleRoot, lifecycle.electionState);
 
   const results = candidates.map((candidate, index) => ({
     ...candidate,
@@ -159,6 +240,12 @@ export async function readOnChainElectionResults(
     latestBlock,
     source: "on-chain",
     loadedAt: new Date().toISOString(),
+    merkleRoot,
+    demoMode: modeReadiness.activeMode,
+    staticFixtureRoot: modeReadiness.staticFixtureRoot,
+    dynamicPreviewRoot: modeReadiness.dynamicPreviewRoot,
+    rootMatchesStaticFixture: rootsMatch(merkleRoot, modeReadiness.staticFixtureRoot),
+    rootMatchesDynamicPoseidon: rootsMatch(merkleRoot, modeReadiness.dynamicPreviewRoot),
   };
 }
 
@@ -174,6 +261,16 @@ export function buildResultsAuditSnapshot(
   const totalMatchesCandidateSum = candidateSum === snapshot.totalVotes;
   const hasOnChainSource = snapshot.source === "on-chain";
   const hasLiveLifecycle = hasOnChainSource;
+  const hasMerkleRoot = snapshot.merkleRoot.trim().length > 0;
+  const hasKnownDemoMode = DEMO_MODES.has(snapshot.demoMode);
+  const declaredModeMatchesRoot = rootMatchesDeclaredMode({
+    demoMode: snapshot.demoMode,
+    merkleRoot: snapshot.merkleRoot,
+    staticFixtureRoot: snapshot.staticFixtureRoot,
+    dynamicPreviewRoot: snapshot.dynamicPreviewRoot,
+    rootMatchesStaticFixture: snapshot.rootMatchesStaticFixture,
+    rootMatchesDynamicPoseidon: snapshot.rootMatchesDynamicPoseidon,
+  });
   const localDemoTurnout =
     typeof localApprovedVoters === "number" && localApprovedVoters > 0
       ? roundPercent((snapshot.totalVotes / localApprovedVoters) * 100)
@@ -195,6 +292,18 @@ export function buildResultsAuditSnapshot(
     warnings.push("Candidate tally sum does not match totalVotes.");
   }
 
+  if (snapshot.demoMode === "CUSTOM") {
+    warnings.push("Contract Merkle root is CUSTOM and does not match a supported local demo mode root.");
+  }
+
+  if (snapshot.demoMode === "UNSET") {
+    warnings.push("Contract Merkle root is UNSET or zero; local demo submit paths are not root-compatible.");
+  }
+
+  if (!declaredModeMatchesRoot) {
+    warnings.push("Declared demoMode does not match the exported Merkle root flags.");
+  }
+
   if (localApprovedVoters === null) {
     warnings.push("Local approved voter count is unavailable.");
   } else if (localApprovedVoters === 0 && snapshot.totalVotes > 0) {
@@ -214,6 +323,12 @@ export function buildResultsAuditSnapshot(
     electionState: snapshot.lifecycle.electionState,
     electionStateName: snapshot.lifecycle.electionStateName,
     latestBlock: snapshot.latestBlock,
+    merkleRoot: snapshot.merkleRoot,
+    demoMode: snapshot.demoMode,
+    staticFixtureRoot: snapshot.staticFixtureRoot,
+    dynamicPreviewRoot: snapshot.dynamicPreviewRoot,
+    rootMatchesStaticFixture: snapshot.rootMatchesStaticFixture,
+    rootMatchesDynamicPoseidon: snapshot.rootMatchesDynamicPoseidon,
     totalVotes: snapshot.totalVotes,
     localApprovedVoters,
     localDemoTurnout,
@@ -227,6 +342,9 @@ export function buildResultsAuditSnapshot(
       totalMatchesCandidateSum,
       hasOnChainSource,
       hasLiveLifecycle,
+      hasMerkleRoot,
+      hasKnownDemoMode,
+      rootMatchesDeclaredMode: declaredModeMatchesRoot,
     },
     warnings,
   };
@@ -258,6 +376,12 @@ export function isResultsAuditSnapshot(value: unknown): value is ResultsAuditSna
     !hasNonNegativeInteger(value, "electionState") ||
     !hasString(value, "electionStateName") ||
     !hasNonNegativeInteger(value, "latestBlock") ||
+    !hasString(value, "merkleRoot") ||
+    !isKnownDemoMode(value.demoMode) ||
+    !hasString(value, "staticFixtureRoot") ||
+    !hasString(value, "dynamicPreviewRoot") ||
+    !hasBoolean(value, "rootMatchesStaticFixture") ||
+    !hasBoolean(value, "rootMatchesDynamicPoseidon") ||
     !hasNonNegativeInteger(value, "totalVotes") ||
     !hasNullableNonNegativeInteger(value, "localApprovedVoters") ||
     !hasNullableNumber(value, "localDemoTurnout") ||
@@ -273,6 +397,9 @@ export function isResultsAuditSnapshot(value: unknown): value is ResultsAuditSna
     typeof value.checks.totalMatchesCandidateSum === "boolean" &&
     typeof value.checks.hasOnChainSource === "boolean" &&
     typeof value.checks.hasLiveLifecycle === "boolean" &&
+    typeof value.checks.hasMerkleRoot === "boolean" &&
+    typeof value.checks.hasKnownDemoMode === "boolean" &&
+    typeof value.checks.rootMatchesDeclaredMode === "boolean" &&
     value.warnings.every((warning) => typeof warning === "string")
   );
 }
@@ -283,6 +410,18 @@ export function validateResultsAuditSnapshot(snapshot: unknown): ResultsAuditVal
 
   if (forbiddenKeys.length > 0) {
     errors.push(`Audit JSON contains forbidden private fields: ${forbiddenKeys.join(", ")}.`);
+  }
+
+  if (
+    isRecord(snapshot) &&
+    (
+      !("merkleRoot" in snapshot) ||
+      !("demoMode" in snapshot) ||
+      !("staticFixtureRoot" in snapshot) ||
+      !("dynamicPreviewRoot" in snapshot)
+    )
+  ) {
+    errors.push("Audit JSON is missing required demo mode/Merkle root metadata. Export a fresh Results audit JSON.");
   }
 
   if (!isResultsAuditSnapshot(snapshot)) {
@@ -312,6 +451,27 @@ export function validateResultsAuditSnapshot(snapshot: unknown): ResultsAuditVal
 
   if (!snapshot.checks.hasLiveLifecycle) {
     errors.push("Audit export requires live lifecycle data.");
+  }
+
+  if (!snapshot.checks.hasMerkleRoot || !snapshot.merkleRoot.trim()) {
+    errors.push("Audit export requires a public contract Merkle root.");
+  }
+
+  if (!snapshot.checks.hasKnownDemoMode || !DEMO_MODES.has(snapshot.demoMode)) {
+    errors.push("Audit export requires a known demoMode.");
+  }
+
+  const declaredModeMatchesRoot = rootMatchesDeclaredMode({
+    demoMode: snapshot.demoMode,
+    merkleRoot: snapshot.merkleRoot,
+    staticFixtureRoot: snapshot.staticFixtureRoot,
+    dynamicPreviewRoot: snapshot.dynamicPreviewRoot,
+    rootMatchesStaticFixture: snapshot.rootMatchesStaticFixture,
+    rootMatchesDynamicPoseidon: snapshot.rootMatchesDynamicPoseidon,
+  });
+
+  if (!snapshot.checks.rootMatchesDeclaredMode || !declaredModeMatchesRoot) {
+    errors.push("demoMode must match merkleRoot and root match flags.");
   }
 
   if (!Number.isInteger(snapshot.latestBlock) || snapshot.latestBlock < 0) {
