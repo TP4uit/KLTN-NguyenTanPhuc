@@ -129,9 +129,11 @@ export function AdminDynamicProofInputPreview() {
     };
 
     window.addEventListener(VOTER_REGISTRATIONS_CHANGED_EVENT, handleRegistrationChange);
+    window.addEventListener("zkvote:demoRunbookStateReset", handleRegistrationChange);
 
     return () => {
       window.removeEventListener(VOTER_REGISTRATIONS_CHANGED_EVENT, handleRegistrationChange);
+      window.removeEventListener("zkvote:demoRunbookStateReset", handleRegistrationChange);
     };
   }, [refreshOptions]);
 
@@ -228,7 +230,8 @@ export function AdminDynamicProofInputPreview() {
             Election ID: <span className="font-mono font-semibold text-slate-800">{currentElectionId}</span>
           </p>
           <p className="mt-2 max-w-4xl text-sm leading-6 text-amber-800">
-            Dynamic proof input preview only. Dashboard voting still uses the static fixture proof path.
+            Dynamic proof input preview only. Dashboard static Vote remains separate, while guarded Dynamic submit uses
+            matching Poseidon proof inputs when readiness succeeds.
           </p>
         </div>
 

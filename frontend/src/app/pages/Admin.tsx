@@ -2,6 +2,7 @@ import { AlertCircle, AlertTriangle, CheckCircle2, KeyRound, Loader2, Lock, Refr
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AdminDynamicProofInputPreview } from "../components/AdminDynamicProofInputPreview";
 import { AdminDemoModeGuide } from "../components/AdminDemoModeGuide";
+import { AdminDemoRunbook } from "../components/AdminDemoRunbook";
 import { AdminMerkleRootAlignment } from "../components/AdminMerkleRootAlignment";
 import { AdminRegistryPreview } from "../components/AdminRegistryPreview";
 import { AdminVoterRegistrationManager } from "../components/AdminVoterRegistrationManager";
@@ -420,6 +421,8 @@ export function Admin() {
           onUseDynamicRoot={updateNewRoot}
           disabled={isBusy}
         />
+
+        <AdminDemoRunbook onResetComplete={refreshAlignment} />
 
         <AdminMerkleRootAlignment
           contractRoot={lifecycle.merkleRoot}

@@ -352,6 +352,7 @@ try {
   await navigation;
   await waitForExpression(client, `document.body.innerText.includes("Registry Preview")`);
   await waitForExpression(client, `document.body.innerText.includes("Admin Demo Mode Guide")`);
+  await waitForExpression(client, `document.body.innerText.includes("End-to-End Demo Runbook")`);
   await waitForExpression(client, `document.body.innerText.includes("Static Fixture Mode")`);
   await waitForExpression(client, `document.body.innerText.includes("Dynamic Poseidon Mode")`);
   await waitForExpression(client, `document.body.innerText.includes("Poseidon preview-only root")`);
@@ -725,6 +726,214 @@ try {
 
   await client.evaluate(`
     (() => {
+      window.__runbookRegistrationEvents = 0;
+      window.__runbookResetEvents = [];
+      window.__castVoteCallCount = 0;
+      window.addEventListener("zkvote:voterRegistrationsChanged", () => {
+        window.__runbookRegistrationEvents += 1;
+      });
+      window.addEventListener("zkvote:demoRunbookStateReset", (event) => {
+        window.__runbookResetEvents.push(event.detail?.clearedKeys ?? []);
+      });
+      localStorage.setItem("zkvote.unrelatedSentinel", "keep-me");
+      return true;
+    })()
+  `);
+
+  await client.evaluate(`
+    (() => {
+      const button = [...document.querySelectorAll("button")].find((candidate) =>
+        candidate.textContent.includes("Reset registrations")
+      );
+      button.click();
+      return true;
+    })()
+  `);
+  await waitForExpression(
+    client,
+    `document.body.innerText.includes("Confirm Reset registrations") &&
+      document.body.innerText.includes("zkvote.voterRegistrations")`,
+  );
+
+  const resetRegistrationsRequiresConfirmation = await client.evaluate(`
+    localStorage.getItem("zkvote.voterRegistrations") !== null &&
+    window.__runbookRegistrationEvents === 0
+  `);
+
+  if (!resetRegistrationsRequiresConfirmation) {
+    throw new Error("Reset registrations did not require confirmation before clearing local state.");
+  }
+
+  await client.evaluate(`
+    (() => {
+      const button = [...document.querySelectorAll("button")].find((candidate) =>
+        candidate.textContent.trim() === "Cancel"
+      );
+      button.click();
+      return true;
+    })()
+  `);
+  await waitForExpression(client, `document.body.innerText.includes("Reset cancelled. No local demo state was cleared.")`);
+
+  const resetCancelCheck = await client.evaluate(`
+    ({
+      registrationStillPresent: localStorage.getItem("zkvote.voterRegistrations") !== null,
+      registrationEvents: window.__runbookRegistrationEvents,
+      setMerkleRootTransactions: window.__setMerkleRootTransactionCount,
+      openElectionTransactions: window.__openElectionTransactionCount,
+      castVoteTransactions: window.__castVoteCallCount,
+    })
+  `);
+
+  if (
+    !resetCancelCheck.registrationStillPresent ||
+    resetCancelCheck.registrationEvents !== 0 ||
+    resetCancelCheck.setMerkleRootTransactions !== 0 ||
+    resetCancelCheck.openElectionTransactions !== 0 ||
+    resetCancelCheck.castVoteTransactions !== 0
+  ) {
+    throw new Error("Cancel reset changed local demo state or sent a transaction.");
+  }
+
+  await client.evaluate(`
+    (() => {
+      const button = [...document.querySelectorAll("button")].find((candidate) =>
+        candidate.textContent.includes("Reset registrations")
+      );
+      button.click();
+      return true;
+    })()
+  `);
+  await waitForExpression(client, `document.body.innerText.includes("Confirm Reset registrations")`);
+  await client.evaluate(`
+    (() => {
+      const button = [...document.querySelectorAll("button")].find((candidate) =>
+        candidate.textContent.trim() === "Confirm reset"
+      );
+      button.click();
+      return true;
+    })()
+  `);
+  await waitForExpression(
+    client,
+    `localStorage.getItem("zkvote.voterRegistrations") === null &&
+      window.__runbookRegistrationEvents > 0 &&
+      document.body.innerText.includes("Reset registrations complete.")`,
+  );
+  await waitForExpression(
+    client,
+    `document.body.innerText.includes("No Poseidon-compatible approved commitments exist for this election yet.")`,
+    20_000,
+  );
+
+  const resetRegistrationsConfirmCheck = await client.evaluate(`
+    ({
+      registrationKey: localStorage.getItem("zkvote.voterRegistrations"),
+      identitySecretsPresent: localStorage.getItem("zkvote.localIdentitySecrets") !== null,
+      usersPresent: localStorage.getItem("zkvote.demoAuth.users") !== null,
+      sessionPresent: localStorage.getItem("zkvote.demoAuth.session") !== null,
+      sentinelValue: localStorage.getItem("zkvote.unrelatedSentinel"),
+      registrationEvents: window.__runbookRegistrationEvents,
+      resetEvents: window.__runbookResetEvents,
+    })
+  `);
+
+  if (
+    resetRegistrationsConfirmCheck.registrationKey !== null ||
+    !resetRegistrationsConfirmCheck.identitySecretsPresent ||
+    !resetRegistrationsConfirmCheck.usersPresent ||
+    !resetRegistrationsConfirmCheck.sessionPresent ||
+    resetRegistrationsConfirmCheck.sentinelValue !== "keep-me" ||
+    resetRegistrationsConfirmCheck.registrationEvents < 1 ||
+    !resetRegistrationsConfirmCheck.resetEvents.some((keys) =>
+      keys.length === 1 && keys[0] === "zkvote.voterRegistrations"
+    )
+  ) {
+    throw new Error("Reset registrations did not clear only the registration key and dispatch events.");
+  }
+
+  const emptyReadinessCheck = await client.evaluate(`
+    (async () => {
+      const { getDynamicVoteReadiness } = await import("/src/app/lib/dynamicVoteReadiness.ts");
+      const readiness = await getDynamicVoteReadiness(null, { electionState: 0, electionStateName: "Registration" }, null);
+      return !readiness.isReady && readiness.reasons.some((reason) => reason.includes("No voter registration"));
+    })()
+  `);
+
+  if (!emptyReadinessCheck) {
+    throw new Error("Dynamic readiness did not handle empty reset state gracefully.");
+  }
+
+  await client.evaluate(`
+    (() => {
+      localStorage.setItem("zkvote.voterRegistrations", "[]");
+      localStorage.setItem("zkvote.localIdentitySecrets", "[]");
+      localStorage.setItem("zkvote.demoAuth.users", "[]");
+      localStorage.setItem("zkvote.demoAuth.session", JSON.stringify({ userId: "demo-admin", createdAt: "2026-06-22T00:00:00.000Z" }));
+      window.__runbookRegistrationEvents = 0;
+      window.__runbookResetEvents = [];
+      return true;
+    })()
+  `);
+  await client.evaluate(`
+    (() => {
+      const button = [...document.querySelectorAll("button")].find((candidate) =>
+        candidate.textContent.includes("Reset all local demo state")
+      );
+      button.click();
+      return true;
+    })()
+  `);
+  await waitForExpression(
+    client,
+    `document.body.innerText.includes("Confirm Reset all local demo state") &&
+      document.body.innerText.includes("zkvote.demoAuth.users")`,
+  );
+  await client.evaluate(`
+    (() => {
+      const button = [...document.querySelectorAll("button")].find((candidate) =>
+        candidate.textContent.trim() === "Confirm reset"
+      );
+      button.click();
+      return true;
+    })()
+  `);
+  await waitForExpression(
+    client,
+    `["zkvote.voterRegistrations", "zkvote.localIdentitySecrets", "zkvote.demoAuth.session", "zkvote.demoAuth.users"]
+      .every((key) => localStorage.getItem(key) === null)`,
+  );
+
+  const resetAllCheck = await client.evaluate(`
+    ({
+      clearedExpectedKeys: ["zkvote.voterRegistrations", "zkvote.localIdentitySecrets", "zkvote.demoAuth.session", "zkvote.demoAuth.users"]
+        .every((key) => localStorage.getItem(key) === null),
+      sentinelValue: localStorage.getItem("zkvote.unrelatedSentinel"),
+      registrationEvents: window.__runbookRegistrationEvents,
+      resetEvents: window.__runbookResetEvents,
+      setMerkleRootTransactions: window.__setMerkleRootTransactionCount,
+      openElectionTransactions: window.__openElectionTransactionCount,
+      castVoteTransactions: window.__castVoteCallCount,
+    })
+  `);
+
+  if (
+    !resetAllCheck.clearedExpectedKeys ||
+    resetAllCheck.sentinelValue !== "keep-me" ||
+    resetAllCheck.registrationEvents < 1 ||
+    !resetAllCheck.resetEvents.some((keys) =>
+      ["zkvote.voterRegistrations", "zkvote.localIdentitySecrets", "zkvote.demoAuth.session", "zkvote.demoAuth.users"]
+        .every((key) => keys.includes(key))
+    ) ||
+    resetAllCheck.setMerkleRootTransactions !== 0 ||
+    resetAllCheck.openElectionTransactions !== 0 ||
+    resetAllCheck.castVoteTransactions !== 0
+  ) {
+    throw new Error("Reset all local demo state did not clear the intended keys only or sent a transaction.");
+  }
+
+  await client.evaluate(`
+    (() => {
       const users = JSON.parse(localStorage.getItem("zkvote.demoAuth.users") || "[]");
       const dynamicUser = {
         id: "dynamic-voter",
@@ -961,6 +1170,12 @@ try {
     adminDemoModeDynamicDetected: demoModeHelperChecks.dynamicMode,
     adminModeButtonsFilledInputWithoutTx: true,
     setMerkleRootConfirmationStillVisible: setMerkleRootConfirmationSmoke.confirmationVisible,
+    adminRunbookVisible: true,
+    resetRegistrationsRequiresConfirmation,
+    resetCancelPreservedRegistrations: resetCancelCheck.registrationStillPresent,
+    resetRegistrationsClearedOnlyRegistrationKey: true,
+    resetAllClearedIntendedKeysOnly: true,
+    emptyReadinessAfterResetHandled: emptyReadinessCheck,
     runtimeCheckTextVisible: true,
   };
 

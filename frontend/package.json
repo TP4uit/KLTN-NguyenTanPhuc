@@ -10,7 +10,8 @@
     "smoke:registry-preview:browser": "node test/registryPreviewDiagnostics.browser-smoke.mjs",
     "smoke:dynamic-proof": "node test/registryPreviewDiagnostics.browser-smoke.mjs",
     "smoke:dynamic-submit": "node test/registryPreviewDiagnostics.browser-smoke.mjs",
-    "smoke:admin-mode-guide": "node test/registryPreviewDiagnostics.browser-smoke.mjs"
+    "smoke:admin-mode-guide": "node test/registryPreviewDiagnostics.browser-smoke.mjs",
+    "smoke:admin-runbook": "node test/registryPreviewDiagnostics.browser-smoke.mjs"
   },
   "dependencies": {
     "@emotion/react": "11.14.0",

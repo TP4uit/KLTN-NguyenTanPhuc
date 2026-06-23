@@ -8,7 +8,7 @@ import {
   RefreshCw,
   Users,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "../lib/authContext";
 import { listUsers } from "../lib/localAuth";
 import {
@@ -18,6 +18,7 @@ import {
   getRegistrationCommitmentScheme,
   listRegistrations,
   rejectRegistration,
+  VOTER_REGISTRATIONS_CHANGED_EVENT,
 } from "../lib/localVoterRegistration";
 import type { DemoUser } from "../lib/authModel";
 import type { CommitmentScheme, VoterRegistration, VoterRegistrationStatus } from "../lib/voterRegistrationModel";
@@ -153,6 +154,18 @@ export function AdminVoterRegistrationManager() {
     setUsers(listUsers());
   };
 
+  useEffect(() => {
+    const handleRegistrationsChanged = () => {
+      refresh();
+    };
+
+    window.addEventListener(VOTER_REGISTRATIONS_CHANGED_EVENT, handleRegistrationsChanged);
+
+    return () => {
+      window.removeEventListener(VOTER_REGISTRATIONS_CHANGED_EVENT, handleRegistrationsChanged);
+    };
+  }, []);
+
   const handleApprove = (registrationId: string) => {
     if (!user || role !== "ADMIN") {
       setReviewStatus("error");
@@ -237,7 +250,8 @@ export function AdminVoterRegistrationManager() {
             candidate choices, proofs, nullifiers, and transaction hashes are not shown or stored here.
           </p>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
-            New demo registrations now use Poseidon commitments suitable for a future dynamic ZK registry, but they still cannot vote with the current static proof fixture until a matching Merkle path/proof input is generated.
+            New demo registrations use Poseidon commitments for Dynamic Poseidon Mode. Static fixture voting still uses
+            the seeded fixture voter and matching fixture root.
           </p>
         </div>
 

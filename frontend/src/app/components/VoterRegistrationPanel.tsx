@@ -95,7 +95,8 @@ export function VoterRegistrationPanel({ registrationState }: VoterRegistrationP
             Your demo identity secret stays in this browser. Losing it may prevent proof generation in later flows.
           </p>
           <p className="mt-2 text-sm leading-6 text-slate-600">
-            New demo registrations now use Poseidon commitments suitable for a future dynamic ZK registry, but they still cannot vote with the current static proof fixture until a matching Merkle path/proof input is generated.
+            New demo registrations use Poseidon commitments for guarded Dynamic submit when the admin runs Dynamic
+            Poseidon Mode. Static fixture voting remains tied to the seeded fixture voter.
           </p>
         </div>
 

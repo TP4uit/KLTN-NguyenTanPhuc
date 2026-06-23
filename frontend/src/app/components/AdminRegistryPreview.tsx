@@ -27,7 +27,7 @@ type PreviewStatus = "idle" | "loading" | "success" | "error";
 type DiagnosticStatus = "idle" | "loading" | "passed" | "failed";
 
 const POSEIDON_WARNING =
-  "This Poseidon preview root is generated from approved local Poseidon commitments only. It must not be used as the contract root until Goal 5.3 creates matching Merkle paths/proof inputs.";
+  "This Poseidon preview root is generated from approved local Poseidon commitments only. Use it for Dynamic Poseidon Mode only when guarded dynamic proof inputs/readiness match it.";
 const POSEIDON_RUNTIME_ERROR = "Poseidon registry preview failed to load in browser runtime.";
 
 function formatLongValue(value: string) {

@@ -37,7 +37,7 @@ Verification notes:
 - Registration evidence export includes election counts and approved identity commitments only; it excludes identity secrets, passwords, vote choices, candidate choices, proofs, nullifiers, and transaction hashes.
 - Headless Chrome smoke test passed for voter registration creation, admin approval, Registration Evidence display, copy JSON, download JSON, forbidden-field exclusion, and the approved voter account evidence card.
 - Headless Chrome smoke test passed for the Registration Evidence empty state when no approved commitments exist.
-- Approved registration proof readiness is fixture compatibility only: the seeded demo voter uses the static local registry fixture, while new demo accounts remain onboarding-only until a future dynamic Merkle registry goal.
+- Earlier approved registration proof readiness was fixture-only; Goal 5 now adds a separate guarded Dynamic Poseidon Mode for approved Poseidon demo voters.
 - Headless Chrome smoke test passed for seeded demo voter fixture compatibility and a newly registered voter approved-but-incompatible flow; current local `Registration` election state keeps vote controls disabled until Open.
 
 ## Goal 3 - Registry and Merkle Root Workflow
@@ -91,6 +91,7 @@ Verification notes:
 - [x] Add dynamic vote submission readiness gate.
 - [x] Add guarded dynamic vote submit flow.
 - [x] Add admin demo mode switch and root mode guide.
+- [x] Add end-to-end demo runbook and reset controls.
 
 Verification notes:
 
@@ -115,9 +116,13 @@ Verification notes:
 - Admin Demo Mode Guide now presents Static Fixture Mode and Dynamic Poseidon Mode as supported local demo modes. Admin must intentionally fill and confirm the matching root before opening the election.
 - Static Fixture Mode uses the static registry fixture root for seeded fixture/static Dashboard submit. Dynamic Poseidon Mode uses the dynamic registry preview root for guarded Dynamic submit.
 - Demo mode buttons only fill the existing New Merkle root input. They do not automatically submit `setMerkleRoot`, `openElection`, or any other transaction.
+- Admin Demo Runbook now gives static fixture and dynamic Poseidon end-to-end local demo paths from mode choice through Results/Audit inspection.
+- Reset controls are local browser state only. They can clear voter registrations, local identity secrets, demo auth session/users, and registered UI cache keys after in-page confirmation.
+- Reset controls do not reset contract root, election state, on-chain votes, deployed artifacts, `registry.local.json`, `election.local.json`, or vote calldata fixtures. Contract state still requires a local chain reset/redeploy.
 - `cd frontend && npm run build` passed.
 - Vite SSR smoke test `npm run smoke:registry-preview` passed for seeded `FIXTURE_POSEIDON`, new `POSEIDON`, missing-scheme `SHA256_DEMO` exclusion, compatible/incompatible counts, direct identity-commitment leaf level, zero padding, warning text, dynamic path generation, overflow blocking, missing identity material path-only behavior, dynamic proof-check blocking for missing material and `SHA256_DEMO`, dynamic vote readiness success/root-mismatch/session-voted states, guarded dynamic submit root-mismatch blocking before `castVote`, admin mode helper static/dynamic/custom/unset classification, and redacted JSON field names.
 - Browser smoke `npm run smoke:dynamic-proof` passed in local Chrome for admin login, `/admin` Registry Preview render, refresh action, Admin Demo Mode Guide render, mode button root-fill actions with no root/open transaction, existing `setMerkleRoot` confirmation display, runtime check pass result, dynamic artifact build, dynamic browser proof dev check, public signal/calldata input matching, Dashboard dynamic readiness display for a `POSEIDON` voter, disabled dynamic submit buttons while root readiness is blocked, copy/download JSON actions, path shape, `nullifierHashPreview`, and copied JSON private-field redaction.
 - Browser smoke `npm run smoke:dynamic-submit` passed for root-mismatch no-`castVote` behavior, successful mocked dynamic `castVote`, generated calldata public input root matching the dynamic preview root, transaction hash recording, and raw identity secret exclusion.
 - Browser smoke `npm run smoke:admin-mode-guide` passed for Admin guide mode display, static/dynamic/custom/unset detection, static/dynamic root-fill buttons, no automatic `setMerkleRoot` or `openElection` transaction from mode buttons, and existing `setMerkleRoot` confirmation behavior.
+- Browser smoke `npm run smoke:admin-runbook` passed for runbook display, reset confirmation/cancel behavior, registration-only reset event dispatch, reset-all intended key clearing, unrelated key preservation, no contract transaction calls, and empty registry/readiness handling.
 - Earlier Goal 5.1 Headless Chrome smoke test passed for fixture voter `FIXTURE_POSEIDON`, new voter `POSEIDON`, missing-scheme `SHA256_DEMO`, evidence scheme/redaction checks, and disabled vote buttons for approved-but-not-fixture-compatible voters.
