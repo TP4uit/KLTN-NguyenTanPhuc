@@ -151,6 +151,7 @@ Verification notes:
 ## Goal 7 - Documentation and Thesis Demo Mapping
 
 - [x] Update README and demo documentation to current MVP flows.
+- [x] Add thesis demo and verification mapping documentation.
 
 Verification notes:
 
@@ -158,4 +159,8 @@ Verification notes:
 - `docs/DEMO_RUNBOOK.md` now covers Static Fixture Mode, Dynamic Poseidon Mode, Results/Audit/evidence package review, reset controls, and the boundary between on-chain contract state, frontend-local demo state, and generated proof/registry fixtures.
 - `docs/BENCHMARK_REPORT.md` keeps the generated benchmark data unchanged and adds a short scope note distinguishing frontend public audit exports from generated benchmark evidence.
 - Documentation now clarifies that current flows are local demo/MVP flows, not production identity management or production election infrastructure.
+- `docs/THESIS_DEMO_MAPPING.md` maps implemented MVP features to thesis/report sections, key files, demo routes, verification commands or smoke tests, suggested screenshots, and known limitations.
+- `docs/SCREENSHOT_CHECKLIST.md` lists thesis/demo screenshots with route, account role, expected state, and Vietnamese captions aligned with the current UI.
+- `docs/FINAL_VERIFICATION_CHECKLIST.md` lists final root/frontend verification commands, manual static/dynamic/evidence browser checks, and limitation checks.
+- README links to the demo runbook, thesis mapping, screenshot checklist, and final verification checklist.
 - No build or test run was required because this was documentation-only.

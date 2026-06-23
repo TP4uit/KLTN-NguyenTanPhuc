@@ -49,6 +49,13 @@ The MVP supports two local demo root modes. Both are intentionally local/demo fl
 
 Approved `SHA256_DEMO` registrations are shown as incompatible with Dynamic Poseidon Mode. Public approved `identityCommitment` values may appear in registration/registry evidence as public registry commitments, but identity secrets, passwords, proofs, raw nullifiers, vote choices, transaction hashes, and wallet/private data are not exported.
 
+## Demo and Thesis Documentation
+
+- [Demo runbook](docs/DEMO_RUNBOOK.md): step-by-step Static Fixture Mode, Dynamic Poseidon Mode, Results/Audit, evidence package review, and reset flows.
+- [Thesis demo mapping](docs/THESIS_DEMO_MAPPING.md): implemented MVP features mapped to thesis sections, files, routes, verification evidence, screenshots, and limitations.
+- [Screenshot checklist](docs/SCREENSHOT_CHECKLIST.md): thesis/demo screenshots to capture with page route, role, expected state, and Vietnamese captions.
+- [Final verification checklist](docs/FINAL_VERIFICATION_CHECKLIST.md): final automated commands, manual browser checks, and limitation checklist before recording or submission.
+
 ## Setup
 
 Install root Hardhat dependencies:
