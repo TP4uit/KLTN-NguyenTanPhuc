@@ -147,3 +147,15 @@ Verification notes:
 - `cd frontend && npm run build` passed.
 - Vite SSR smoke test `npm run smoke:results-audit` passed for static fixture root classification, dynamic Poseidon root classification, custom/zero root warnings, old audit JSON rejection, private-field rejection, root/mode mismatch detection, and exported JSON private-field redaction.
 - Vite SSR smoke test `npm run smoke:evidence-package` passed for valid package construction, package field coverage, static fixture vs dynamic Poseidon root checks, public commitment allowance in evidence sections, private-field rejection, raw audit import, package import, live comparison from package import, review verdicts, invalid-package errors-before-warnings structure, normalized review report redaction, and live comparison inclusion in the review report.
+
+## Goal 7 - Documentation and Thesis Demo Mapping
+
+- [x] Update README and demo documentation to current MVP flows.
+
+Verification notes:
+
+- README now describes the current local MVP status, frontend demo roles, Static Fixture Mode, Dynamic Poseidon Mode, local admin/voter/auditor browser flow, Results audit export, public evidence package export, and auditor package review.
+- `docs/DEMO_RUNBOOK.md` now covers Static Fixture Mode, Dynamic Poseidon Mode, Results/Audit/evidence package review, reset controls, and the boundary between on-chain contract state, frontend-local demo state, and generated proof/registry fixtures.
+- `docs/BENCHMARK_REPORT.md` keeps the generated benchmark data unchanged and adds a short scope note distinguishing frontend public audit exports from generated benchmark evidence.
+- Documentation now clarifies that current flows are local demo/MVP flows, not production identity management or production election infrastructure.
+- No build or test run was required because this was documentation-only.

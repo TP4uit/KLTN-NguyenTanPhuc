@@ -1,8 +1,8 @@
 # KLTN ZK Anonymous Verifiable Voting MVP
 
-This repository is the foundation for a KLTN thesis MVP that demonstrates anonymous, verifiable voting with zero-knowledge proofs. The current vertical slice lets a registered voter prove Merkle membership off-chain, submit one private vote on-chain, prevent double voting with a nullifier, and publish a verifiable candidate tally.
+This repository is the foundation for a KLTN thesis MVP that demonstrates anonymous, verifiable voting with zero-knowledge proofs. The current vertical slice lets a demo voter prove Merkle membership, submit one private vote on-chain, prevent double voting with a nullifier, read live candidate tallies, and export public audit evidence.
 
-The project is still intentionally scoped as an MVP foundation. Dynamic voter registration, production ceremonies, and production browser-side proof generation are future work.
+The project is intentionally scoped as a local MVP/demo system. It now includes local demo auth, voter registration review, two admin-selected local root modes, guarded static/dynamic vote submission paths, Results audit export, public evidence package export, and auditor evidence package review. These flows are for thesis demonstration and local verification; they are not production identity management, production registration, or production election infrastructure.
 
 ## Architecture
 
@@ -15,7 +15,7 @@ The project is still intentionally scoped as an MVP foundation. Dynamic voter re
 - `scripts/vote-local.ts`: reads the deployment metadata and calldata fixture, validates root/election ID consistency, submits `Election.castVote`, and prints transaction metrics.
 - `ignition/modules/Election.ts`: Hardhat Ignition module for verifier-first election deployment.
 - `test/Election.test.ts`: TypeScript integration tests for registry helpers, verifier-backed voting, invalid proof paths, replay prevention, and candidate bounds.
-- `frontend/`: Vite frontend foundation. Local contract metadata is exported to `frontend/src/contracts/election.local.json`, browser-generated demo votes use proving assets under `frontend/public/zk/`, and the checked proof fixture remains available at `frontend/src/contracts/vote.calldata.local.json` as a fallback.
+- `frontend/`: Vite frontend foundation. Local contract metadata is exported to `frontend/src/contracts/election.local.json`, browser-generated demo votes use proving assets under `frontend/public/zk/`, and the checked proof fixture remains available at `frontend/src/contracts/vote.calldata.local.json` as a fallback. The frontend also contains local demo auth, registration review, admin root/lifecycle controls, Results audit export, public evidence package export, and auditor package review.
 
 ## Public Inputs
 
@@ -29,6 +29,25 @@ input[3] = merkleRoot
 ```
 
 MVP candidate IDs are valid only in the inclusive range `1..4`.
+
+## Frontend Demo Roles
+
+The browser app uses local demo accounts and role guards. This state lives in browser storage and is not a production identity provider.
+
+- `voter`: registers a local demo identity, waits for admin approval, and votes from `/dashboard` when the election is Open and the selected root mode is compatible.
+- `admin`: reviews voter registrations, previews registry roots, chooses Static Fixture Mode or Dynamic Poseidon Mode, confirms `setMerkleRoot`, opens/closes the election, and can reset frontend-local demo state.
+- `auditor`: imports Results audit JSON or a public evidence package in `/audit`, validates public fields, reviews root/mode alignment, and optionally compares the package against current localhost contract reads.
+
+Seed demo accounts are restored by the frontend if local demo auth storage is empty. New voter accounts can also be created from `/register`.
+
+## Supported Local Demo Modes
+
+The MVP supports two local demo root modes. Both are intentionally local/demo flows.
+
+- Static Fixture Mode uses the deterministic `registry.local.json` fixture root and the seeded fixture voter path. It is closest to the original fixed-registry proof fixture and supports the static Dashboard submit path.
+- Dynamic Poseidon Mode uses the admin Registry Preview root built from approved local `POSEIDON` and `FIXTURE_POSEIDON` identity commitments. It supports guarded Dynamic submit only when the contract root equals the preview root, the election is Open, matching proof inputs can be derived, and the current UI session has not already voted.
+
+Approved `SHA256_DEMO` registrations are shown as incompatible with Dynamic Poseidon Mode. Public approved `identityCommitment` values may appear in registration/registry evidence as public registry commitments, but identity secrets, passwords, proofs, raw nullifiers, vote choices, transaction hashes, and wallet/private data are not exported.
 
 ## Setup
 
@@ -84,7 +103,7 @@ Sync frontend-local proof fixtures and browser proving assets:
 npm run frontend:sync-fixtures
 ```
 
-Deploy the local verifier and election contract. The local demo opens the election by default:
+Deploy the local verifier and election contract. The local script opens the election by default:
 
 ```shell
 npm run deploy:local
@@ -148,18 +167,22 @@ npm run dev
 
 ## Local Browser Flow
 
-Use this flow when testing the Figma frontend with MetaMask.
+Use this flow when testing the frontend with MetaMask. For the admin lifecycle and root-mode demo, deploy with `LOCAL_ELECTION_AUTO_OPEN=false` so `/admin` can set the desired root and open the election intentionally.
 
 Terminal 1:
 
 ```shell
-npx hardhat node
+npm run node:local
 ```
 
 Terminal 2:
 
 ```shell
-npm run registry:generate && npm run proof:generate && npm run proof:calldata && npm run frontend:sync-fixtures && npm run deploy:localhost
+npm run registry:generate
+npm run proof:generate
+npm run proof:calldata
+npm run frontend:sync-fixtures
+$env:LOCAL_ELECTION_AUTO_OPEN='false'; npm run deploy:localhost; Remove-Item Env:LOCAL_ELECTION_AUTO_OPEN
 ```
 
 Terminal 3:
@@ -176,20 +199,20 @@ In MetaMask, add or select the localhost network:
 - Chain ID: `31337`
 - Currency symbol: `ETH`
 
-Import one of the funded Hardhat test accounts from the `npx hardhat node` output if MetaMask does not already have a funded localhost account.
+Import one of the funded Hardhat test accounts from the `npm run node:local` output if MetaMask does not already have a funded localhost account.
 
-The Dashboard primary Vote buttons generate a fresh Groth16 proof in the browser for the selected candidate, then submit the generated Solidity calldata through MetaMask. A separate fixture fallback button still submits `frontend/src/contracts/vote.calldata.local.json` for candidate `1`. The browser-generated path uses `/zk/vote.wasm`, `/zk/vote_final.zkey`, and the local demo registry fixture. It still uses demo-only voter secret material and a precomputed local demo nullifier, so it is an MVP/demo flow rather than production identity or secret management.
+Recommended browser path:
 
-`npm run deploy:localhost` auto-opens the election so browser voting works immediately. Set `LOCAL_ELECTION_AUTO_OPEN=false` to deploy and export metadata while staying in Registration. The Dashboard and Results pages display the live lifecycle state after MetaMask connects, and Dashboard refuses to submit votes unless the contract state is Open.
+1. Sign in as an admin demo account.
+2. Open `/admin`, connect the Hardhat deployer/admin account in MetaMask, review pending registrations, and inspect Registry Preview / Dynamic Proof Input Preview if needed.
+3. Choose the intended local demo mode:
+   - Static Fixture Mode: fill the static fixture root, confirm `setMerkleRoot`, then confirm `openElection`.
+   - Dynamic Poseidon Mode: approve Poseidon-compatible registrations, fill the dynamic Poseidon preview root, confirm `setMerkleRoot`, then confirm `openElection`.
+4. Sign in as a voter and open `/dashboard`. Static submit uses the fixture-compatible path. Dynamic submit is enabled only when all Dynamic Poseidon readiness checks pass.
+5. Open `/results` to read on-chain tallies, Merkle root, and demo mode. Export the Results audit JSON or the public evidence package.
+6. Sign in as an auditor or admin and open `/audit`. Import the Results audit JSON or public evidence package, review validation checks, and optionally run live comparison against the current localhost contract.
 
-Admin demo flow:
-
-```shell
-# Terminal 2, while npm run node:local is running
-$env:LOCAL_ELECTION_AUTO_OPEN='false'; npm run deploy:localhost; Remove-Item Env:LOCAL_ELECTION_AUTO_OPEN
-```
-
-Then open `/admin`, connect the Hardhat deployer/admin account in MetaMask, and use the Admin page to open the election. After that, use `/dashboard` to cast a browser-generated vote, `/results` to read the tally, and `/admin` again to close the election. Results remain readable after close, while Dashboard vote submission is blocked when the live lifecycle state is Closed.
+The Dashboard and Results pages display the live lifecycle state after MetaMask connects. Dashboard refuses to submit votes unless the contract state is Open. Results remain readable after close, while voting is blocked once the live lifecycle state is Closed.
 
 ## Local Metadata
 
@@ -209,14 +232,16 @@ Hardhat's in-process network is ephemeral between script runs. `scripts/vote-loc
 
 The current evidence pack records registry root recomputation, Groth16 proof verification, calldata consistency, deployment lifecycle metadata checks, R1CS metrics, artifact sizes, local proof timings, deployment gas, `openElection`/`closeElection` gas, valid vote gas, and expected lifecycle/proof rejection behavior. Reverted paths record readable reasons, but the current local ethers/Hardhat error objects do not expose failed-path gas receipts.
 
+Frontend Results audit JSON and public evidence packages are separate browser exports. They combine current contract reads with frontend-local demo registration/registry evidence for review in `/audit`; they are public demo evidence only, not cryptographic proof of per-vote provenance.
+
 ## Current Roadmap
 
 1. Keep the local Merkle registry, proof, deploy, and vote flow reproducible.
 2. Keep the generated audit and benchmark evidence pack current as the MVP changes.
-3. Harden browser-side proof generation beyond the current local/demo secret and nullifier fixture.
-4. Decide whether any post-MVP registry update flow is needed, or keep immutable root publication as the thesis scope.
-5. Prepare production ceremony and deployment notes after the MVP flow stabilizes.
+3. Keep the frontend demo runbook aligned with Static Fixture Mode, Dynamic Poseidon Mode, Results audit export, and evidence package review.
+4. Harden browser-side proof generation, identity storage, and registration beyond the current local/demo model before any production design.
+5. Prepare production ceremony, deployment, identity, and registry update notes only after the MVP flow stabilizes.
 
 ## Status
 
-The current repository implements a local anonymous voting vertical slice for a fixed registry fixture. It is not a production election system.
+The current repository implements a local anonymous voting MVP with fixed fixture and dynamic Poseidon demo modes, admin-reviewed local registrations, guarded vote submission, public Results audit export, public evidence package export, and auditor review. It is not a production election system.
