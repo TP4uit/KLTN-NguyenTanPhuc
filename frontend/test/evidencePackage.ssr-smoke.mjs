@@ -54,7 +54,12 @@ try {
     collectForbiddenDemoEvidencePackagePaths,
     validateDemoEvidencePackage,
   } = await server.ssrLoadModule("/src/app/lib/demoEvidencePackage.ts");
-  const { createComparisonRows, validateAuditImport } = await server.ssrLoadModule("/src/app/pages/Audit.tsx");
+  const {
+    buildEvidencePackageReviewReport,
+    createComparisonRows,
+    getEvidencePackageVerdict,
+    validateAuditImport,
+  } = await server.ssrLoadModule("/src/app/pages/Audit.tsx");
 
   window.localStorage.setItem(
     "zkvote.voterRegistrations",
@@ -106,6 +111,25 @@ try {
     identityCommitment: "not-allowed-here",
   });
   const publicFieldScan = collectForbiddenDemoEvidencePackagePaths(dynamicPackage);
+  const reviewReportBeforeComparison = buildEvidencePackageReviewReport({
+    evidencePackage: dynamicPackage,
+    packageValidation: dynamicPackageValidation,
+  });
+  const reviewReportAfterComparison = buildEvidencePackageReviewReport({
+    evidencePackage: dynamicPackage,
+    packageValidation: dynamicPackageValidation,
+    comparisonRows,
+  });
+  const invalidReviewReport = buildEvidencePackageReviewReport({
+    evidencePackage: {
+      ...dynamicPackage,
+      walletAddress: "private",
+    },
+    packageValidation: privatePackageValidation,
+    comparisonRows,
+  });
+  const reportForbiddenFields = collectForbiddenDemoEvidencePackagePaths(reviewReportAfterComparison);
+  const invalidReportForbiddenFields = collectForbiddenDemoEvidencePackagePaths(invalidReviewReport);
 
   const checks = [
     ["static package includes resultsAudit", staticPackage.resultsAudit?.demoMode === "STATIC_FIXTURE"],
@@ -124,6 +148,13 @@ try {
     ["Audit import accepts raw Results audit JSON", rawAuditImport.validation.isValid && rawAuditImport.auditSnapshot?.demoMode === "STATIC_FIXTURE" && rawAuditImport.packageValidation === null],
     ["Audit import accepts full evidence package", packageImport.packageValidation?.isValid && packageImport.auditSnapshot?.demoMode === "DYNAMIC_POSEIDON"],
     ["live comparison works from package import", comparisonRows.some((row) => row.label === "Merkle root" && !row.matches)],
+    ["package review report includes package metadata", reviewReportBeforeComparison.packageMetadata.packageVersion === dynamicPackage.packageVersion && reviewReportBeforeComparison.packageMetadata.electionId === currentElectionId],
+    ["package review report includes checks", reviewReportBeforeComparison.checks.registryPreviewRootMatchesResultsRoot === true],
+    ["valid package with warnings verdict is computed", getEvidencePackageVerdict(dynamicPackageValidation) === "Valid with warnings" && reviewReportBeforeComparison.verdict === "Valid with warnings"],
+    ["invalid package verdict is computed", invalidReviewReport.verdict === "Invalid package" && invalidReviewReport.errors.length > 0 && invalidReviewReport.warnings.length > 0],
+    ["invalid report exposes errors before warnings structurally", Object.keys(invalidReviewReport).indexOf("errors") < Object.keys(invalidReviewReport).indexOf("warnings")],
+    ["normalized review report excludes forbidden private field keys", reportForbiddenFields.length === 0 && invalidReportForbiddenFields.length === 0],
+    ["review report includes live comparison after comparison", reviewReportAfterComparison.liveComparison?.rows.length === comparisonRows.length && reviewReportAfterComparison.liveComparison?.allMatched === false],
   ];
   const failed = checks.filter(([, passed]) => !passed);
 
@@ -133,6 +164,8 @@ try {
     staticPackageMode: staticPackage.demoMode,
     dynamicPackageMode: dynamicPackage.demoMode,
     dynamicPackageChecks: dynamicPackage.checks,
+    reviewVerdict: reviewReportBeforeComparison.verdict,
+    reviewReportHasLiveComparison: Boolean(reviewReportAfterComparison.liveComparison),
   }, null, 2));
 
   if (failed.length > 0) {
@@ -141,4 +174,3 @@ try {
 } finally {
   await server.close();
 }
-

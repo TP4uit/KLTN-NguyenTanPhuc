@@ -131,6 +131,7 @@ Verification notes:
 
 - [x] Add Results/Audit demo mode attribution.
 - [x] Add public demo evidence package export.
+- [x] Add auditor-friendly evidence package review UX.
 
 Verification notes:
 
@@ -141,6 +142,8 @@ Verification notes:
 - Results can now build, copy, and download a public evidence package combining Results audit JSON, local registration evidence, Poseidon registry preview, demo mode/root attribution, safety warnings, and verification checks.
 - Evidence package validation allows public `identityCommitment` values only inside registration/registry evidence sections and rejects private-looking keys such as identity secrets, proofs, nullifiers, vote choices, transaction hashes, wallet data, and private keys.
 - Audit import accepts either raw Results audit JSON or a full public evidence package containing `resultsAudit`; package imports show package metadata/checks/warnings and live comparison still uses the embedded Results audit snapshot.
+- Audit now shows a structured Evidence Package Review for package imports, separating package metadata, on-chain Results audit data, frontend-local registration evidence, Poseidon registry preview, root alignment, final verdict, errors, warnings, and the public demo limitation.
+- Audit can copy/download a normalized public review report with package metadata, verdict, checks, warnings, errors, and live comparison results when available. The report excludes secrets, proofs, nullifiers, vote choices, transaction hashes, wallet/private data, and private keys.
 - `cd frontend && npm run build` passed.
 - Vite SSR smoke test `npm run smoke:results-audit` passed for static fixture root classification, dynamic Poseidon root classification, custom/zero root warnings, old audit JSON rejection, private-field rejection, root/mode mismatch detection, and exported JSON private-field redaction.
-- Vite SSR smoke test `npm run smoke:evidence-package` passed for valid package construction, package field coverage, static fixture vs dynamic Poseidon root checks, public commitment allowance in evidence sections, private-field rejection, raw audit import, package import, and live comparison from package import.
+- Vite SSR smoke test `npm run smoke:evidence-package` passed for valid package construction, package field coverage, static fixture vs dynamic Poseidon root checks, public commitment allowance in evidence sections, private-field rejection, raw audit import, package import, live comparison from package import, review verdicts, invalid-package errors-before-warnings structure, normalized review report redaction, and live comparison inclusion in the review report.
