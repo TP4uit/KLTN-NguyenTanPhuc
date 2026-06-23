@@ -12,7 +12,8 @@
     "smoke:dynamic-submit": "node test/registryPreviewDiagnostics.browser-smoke.mjs",
     "smoke:admin-mode-guide": "node test/registryPreviewDiagnostics.browser-smoke.mjs",
     "smoke:admin-runbook": "node test/registryPreviewDiagnostics.browser-smoke.mjs",
-    "smoke:results-audit": "node test/resultsAuditMode.ssr-smoke.mjs"
+    "smoke:results-audit": "node test/resultsAuditMode.ssr-smoke.mjs",
+    "smoke:evidence-package": "node test/evidencePackage.ssr-smoke.mjs"
   },
   "dependencies": {
     "@emotion/react": "11.14.0",

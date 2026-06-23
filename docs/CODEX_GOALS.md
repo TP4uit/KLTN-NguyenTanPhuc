@@ -130,6 +130,7 @@ Verification notes:
 ## Goal 6 - Results and Audit Mode Attribution
 
 - [x] Add Results/Audit demo mode attribution.
+- [x] Add public demo evidence package export.
 
 Verification notes:
 
@@ -137,5 +138,9 @@ Verification notes:
 - Results Audit Export includes public root/mode context, static and dynamic reference roots, root match flags, and root/mode checks only. It remains contract/root-level audit context, not per-vote provenance.
 - Audit import validation now requires the public Merkle root and demo mode metadata, rejects old audit JSON missing those fields with a clear error, and keeps rejecting forbidden private-field keys such as voter identities, identity commitments, proofs, nullifiers, vote choices, transaction hashes, wallet data, and private keys.
 - Audit live comparison now compares Merkle root, demo mode, root match flags, election metadata, total votes, and candidate tallies against current localhost contract reads.
+- Results can now build, copy, and download a public evidence package combining Results audit JSON, local registration evidence, Poseidon registry preview, demo mode/root attribution, safety warnings, and verification checks.
+- Evidence package validation allows public `identityCommitment` values only inside registration/registry evidence sections and rejects private-looking keys such as identity secrets, proofs, nullifiers, vote choices, transaction hashes, wallet data, and private keys.
+- Audit import accepts either raw Results audit JSON or a full public evidence package containing `resultsAudit`; package imports show package metadata/checks/warnings and live comparison still uses the embedded Results audit snapshot.
 - `cd frontend && npm run build` passed.
 - Vite SSR smoke test `npm run smoke:results-audit` passed for static fixture root classification, dynamic Poseidon root classification, custom/zero root warnings, old audit JSON rejection, private-field rejection, root/mode mismatch detection, and exported JSON private-field redaction.
+- Vite SSR smoke test `npm run smoke:evidence-package` passed for valid package construction, package field coverage, static fixture vs dynamic Poseidon root checks, public commitment allowance in evidence sections, private-field rejection, raw audit import, package import, and live comparison from package import.

@@ -2,6 +2,12 @@ import { AlertCircle, CheckCircle2, FileCheck2, Loader2, RefreshCw, Trash2, Uplo
 import { useMemo, useState } from "react";
 import { DashboardHeader } from "../components/DashboardHeader";
 import {
+  isDemoEvidencePackage,
+  validateDemoEvidencePackage,
+  type DemoEvidencePackage,
+  type DemoEvidencePackageValidation,
+} from "../lib/demoEvidencePackage";
+import {
   isResultsAuditSnapshot,
   readOnChainElectionResults,
   validateResultsAuditSnapshot,
@@ -19,6 +25,13 @@ type ComparisonRow = {
   matches: boolean;
 };
 
+export type AuditImportValidationResult = {
+  validation: ResultsAuditValidation;
+  packageValidation: DemoEvidencePackageValidation | null;
+  auditSnapshot: ResultsAuditSnapshot | null;
+  evidencePackage: DemoEvidencePackage | null;
+};
+
 function formatValue(value: string | number | null) {
   if (value === null) {
     return "null";
@@ -29,6 +42,10 @@ function formatValue(value: string | number | null) {
   }
 
   return value;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 export function createComparisonRows(auditSnapshot: ResultsAuditSnapshot, currentSnapshot: Awaited<ReturnType<typeof readOnChainElectionResults>>) {
@@ -106,11 +123,38 @@ export function createComparisonRows(auditSnapshot: ResultsAuditSnapshot, curren
   return rows;
 }
 
+export function validateAuditImport(parsedJson: unknown): AuditImportValidationResult {
+  if (isDemoEvidencePackage(parsedJson) || (isRecord(parsedJson) && "resultsAudit" in parsedJson)) {
+    const nextPackageValidation = validateDemoEvidencePackage(parsedJson);
+    const nextEvidencePackage = isDemoEvidencePackage(parsedJson) ? parsedJson : null;
+    const nextAuditSnapshot = nextEvidencePackage?.resultsAudit ??
+      (isRecord(parsedJson) && isResultsAuditSnapshot(parsedJson.resultsAudit) ? parsedJson.resultsAudit : null);
+
+    return {
+      validation: nextPackageValidation.resultsAuditValidation,
+      packageValidation: nextPackageValidation,
+      auditSnapshot: nextAuditSnapshot,
+      evidencePackage: nextEvidencePackage,
+    };
+  }
+
+  const nextValidation = validateResultsAuditSnapshot(parsedJson);
+
+  return {
+    validation: nextValidation,
+    packageValidation: null,
+    auditSnapshot: isResultsAuditSnapshot(parsedJson) ? parsedJson : null,
+    evidencePackage: null,
+  };
+}
+
 export function Audit() {
   const [rawJson, setRawJson] = useState("");
   const [parseError, setParseError] = useState<string | null>(null);
   const [validation, setValidation] = useState<ResultsAuditValidation | null>(null);
+  const [packageValidation, setPackageValidation] = useState<DemoEvidencePackageValidation | null>(null);
   const [auditSnapshot, setAuditSnapshot] = useState<ResultsAuditSnapshot | null>(null);
+  const [evidencePackage, setEvidencePackage] = useState<DemoEvidencePackage | null>(null);
   const [comparisonStatus, setComparisonStatus] = useState<LiveComparisonStatus>("idle");
   const [comparisonRows, setComparisonRows] = useState<ComparisonRow[]>([]);
   const [comparisonError, setComparisonError] = useState<string | null>(null);
@@ -119,24 +163,26 @@ export function Audit() {
     [auditSnapshot],
   );
   const hasInput = rawJson.trim().length > 0;
+  const importIsValid = packageValidation ? packageValidation.isValid : validation?.isValid;
 
   const handleValidate = () => {
     setParseError(null);
     setValidation(null);
+    setPackageValidation(null);
     setAuditSnapshot(null);
+    setEvidencePackage(null);
     setComparisonStatus("idle");
     setComparisonRows([]);
     setComparisonError(null);
 
     try {
       const parsedJson: unknown = JSON.parse(rawJson);
-      const nextValidation = validateResultsAuditSnapshot(parsedJson);
+      const importResult = validateAuditImport(parsedJson);
 
-      setValidation(nextValidation);
-
-      if (isResultsAuditSnapshot(parsedJson)) {
-        setAuditSnapshot(parsedJson);
-      }
+      setValidation(importResult.validation);
+      setPackageValidation(importResult.packageValidation);
+      setAuditSnapshot(importResult.auditSnapshot);
+      setEvidencePackage(importResult.evidencePackage);
     } catch (error) {
       setParseError(error instanceof Error ? error.message : "Audit JSON could not be parsed.");
     }
@@ -151,7 +197,9 @@ export function Audit() {
       setRawJson(await file.text());
       setParseError(null);
       setValidation(null);
+      setPackageValidation(null);
       setAuditSnapshot(null);
+      setEvidencePackage(null);
       setComparisonRows([]);
       setComparisonError(null);
       setComparisonStatus("idle");
@@ -164,16 +212,18 @@ export function Audit() {
     setRawJson("");
     setParseError(null);
     setValidation(null);
+    setPackageValidation(null);
     setAuditSnapshot(null);
+    setEvidencePackage(null);
     setComparisonStatus("idle");
     setComparisonRows([]);
     setComparisonError(null);
   };
 
   const handleLiveComparison = async () => {
-    if (!auditSnapshot || !validation?.isValid) {
+    if (!auditSnapshot || !importIsValid) {
       setComparisonStatus("error");
-      setComparisonError("Validate a Results audit JSON before comparing with current on-chain tallies.");
+      setComparisonError("Validate a Results audit JSON or public evidence package before comparing with current on-chain tallies.");
       return;
     }
 
@@ -206,7 +256,7 @@ export function Audit() {
             <h1 className="text-3xl font-bold text-slate-900">Audit Verification</h1>
           </div>
           <p className="max-w-3xl text-lg text-slate-600">
-            Import a Results audit JSON and validate that its public tally fields are internally consistent.
+            Import a Results audit JSON or a public evidence package and validate that its public tally fields are internally consistent.
           </p>
           <p className="max-w-4xl rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
             Audit verification uses public tally JSON only. It must not contain voter identities, secrets, proofs,
@@ -218,7 +268,7 @@ export function Audit() {
           <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h2 className="text-xl font-bold text-slate-900">Import Audit JSON</h2>
-              <p className="mt-1 text-sm text-slate-500">Paste a Results audit export or upload a `.json` file.</p>
+              <p className="mt-1 text-sm text-slate-500">Paste a Results audit export, public evidence package, or upload a `.json` file.</p>
             </div>
             <div className="flex flex-col gap-3 sm:flex-row">
               <label className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50">
@@ -277,15 +327,15 @@ export function Audit() {
             </div>
             <span
               className={`inline-flex w-fit items-center gap-2 rounded-full border px-3 py-1 text-sm font-semibold ${
-                validation?.isValid
+                importIsValid
                   ? "border-emerald-200 bg-emerald-50 text-emerald-700"
                   : validation
                     ? "border-red-200 bg-red-50 text-red-700"
                     : "border-slate-200 bg-slate-50 text-slate-600"
               }`}
             >
-              {validation?.isValid ? <CheckCircle2 className="h-4 w-4" /> : <AlertCircle className="h-4 w-4" />}
-              {validation?.isValid ? "Valid" : validation ? "Invalid" : "Not validated"}
+              {importIsValid ? <CheckCircle2 className="h-4 w-4" /> : <AlertCircle className="h-4 w-4" />}
+              {importIsValid ? "Valid" : validation ? "Invalid" : "Not validated"}
             </span>
           </div>
 
@@ -321,6 +371,33 @@ export function Audit() {
                   <span>declared mode check: {auditSnapshot.checks.rootMatchesDeclaredMode ? "passed" : "failed"}</span>
                 </div>
               </div>
+
+              {evidencePackage && (
+                <div className="mt-5 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-950">
+                  <div className="font-semibold">Imported Public Evidence Package</div>
+                  <p className="mt-1 text-emerald-900">
+                    Package metadata wraps the embedded Results audit with local registration evidence and the Poseidon
+                    registry preview. Public identity commitments are expected only in registration and registry evidence.
+                  </p>
+                  <div className="mt-3 grid grid-cols-1 gap-2 md:grid-cols-3">
+                    <span>packageVersion: <span className="font-mono">{evidencePackage.packageVersion}</span></span>
+                    <span>demoMode: <span className="font-mono">{evidencePackage.demoMode}</span></span>
+                    <span title={evidencePackage.merkleRoot}>merkleRoot: <span className="font-mono">{formatLongValue(evidencePackage.merkleRoot)}</span></span>
+                  </div>
+                  <div className="mt-3 grid grid-cols-1 gap-2 md:grid-cols-2 lg:grid-cols-5">
+                    {Object.entries(evidencePackage.checks).map(([checkName, passed]) => (
+                      <span
+                        key={checkName}
+                        className={`rounded-lg border px-3 py-2 font-mono text-xs ${
+                          passed ? "border-emerald-300 bg-white text-emerald-800" : "border-amber-300 bg-amber-50 text-amber-800"
+                        }`}
+                      >
+                        {checkName}: {String(passed)}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               <div className="mt-5 grid grid-cols-1 gap-4 lg:grid-cols-2">
                 <div className="rounded-xl border border-slate-200 px-4 py-3 text-sm">
@@ -381,9 +458,29 @@ export function Audit() {
                       ))}
                     </ul>
                   )}
+                  {packageValidation && packageValidation.errors.length > 0 && (
+                    <ul className="mt-3 space-y-2 text-red-700">
+                      {packageValidation.errors.map((error) => (
+                        <li key={error} className="flex items-start gap-2">
+                          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                          <span>{error}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                   {validation && validation.warnings.length > 0 && (
                     <ul className="mt-3 space-y-2 text-slate-600">
                       {validation.warnings.map((warning) => (
+                        <li key={warning} className="flex items-start gap-2">
+                          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+                          <span>{warning}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  {packageValidation && packageValidation.warnings.length > 0 && (
+                    <ul className="mt-3 space-y-2 text-slate-600">
+                      {packageValidation.warnings.map((warning) => (
                         <li key={warning} className="flex items-start gap-2">
                           <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
                           <span>{warning}</span>
@@ -440,7 +537,7 @@ export function Audit() {
             </div>
             <button
               onClick={handleLiveComparison}
-              disabled={!auditSnapshot || !validation?.isValid || comparisonStatus === "loading"}
+              disabled={!auditSnapshot || !importIsValid || comparisonStatus === "loading"}
               className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {comparisonStatus === "loading" ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}

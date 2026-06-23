@@ -6,6 +6,7 @@ import {
   CheckCircle2,
   Clipboard,
   Download,
+  FileCheck2,
   Loader2,
   RefreshCw,
   Users,
@@ -16,6 +17,7 @@ import { useEffect, useMemo, useState } from "react";
 import { ImageWithFallback } from "../components/figma/ImageWithFallback";
 import { DashboardHeader } from "../components/DashboardHeader";
 import { CANDIDATES, type CandidateMetadata } from "../lib/candidates";
+import { buildDemoEvidencePackage, type DemoEvidencePackage } from "../lib/demoEvidencePackage";
 import {
   buildResultsAuditSnapshot,
   readOnChainElectionResults,
@@ -73,6 +75,8 @@ export function Results() {
   const [statusMessage, setStatusMessage] = useState("Connect MetaMask to load on-chain localhost tallies.");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [auditMessage, setAuditMessage] = useState<string | null>(null);
+  const [evidencePackage, setEvidencePackage] = useState<DemoEvidencePackage | null>(null);
+  const [isBuildingEvidencePackage, setIsBuildingEvidencePackage] = useState(false);
   const [electionLifecycle, setElectionLifecycle] = useState<ElectionLifecycle>(getMetadataElectionLifecycle());
   const [localApprovedVoters, setLocalApprovedVoters] = useState<number | null>(() => readLocalApprovedVoters());
   const isOnChain = snapshot?.source === "on-chain";
@@ -88,6 +92,10 @@ export function Results() {
     [auditSnapshot],
   );
   const auditJson = useMemo(() => (auditSnapshot ? JSON.stringify(auditSnapshot, null, 2) : ""), [auditSnapshot]);
+  const evidencePackageJson = useMemo(
+    () => (evidencePackage ? JSON.stringify(evidencePackage, null, 2) : ""),
+    [evidencePackage],
+  );
   const canExportAudit = Boolean(auditSnapshot && auditValidation?.isValid);
 
   const displayResults = useMemo<DisplayCandidate[]>(() => {
@@ -154,6 +162,10 @@ export function Results() {
   }, []);
 
   useEffect(() => {
+    setEvidencePackage(null);
+  }, [auditSnapshot]);
+
+  useEffect(() => {
     const refreshApprovedCount = () => {
       setLocalApprovedVoters(readLocalApprovedVoters());
     };
@@ -197,6 +209,64 @@ export function Results() {
 
     downloadJson(`zkvote-results-audit-${localElection.electionId}.json`, auditJson);
     setAuditMessage("Audit JSON download started.");
+  };
+
+  const buildEvidencePackageForExport = async () => {
+    if (!auditSnapshot || !canExportAudit) {
+      setAuditMessage("Load on-chain tallies before building the evidence package.");
+      return null;
+    }
+
+    setIsBuildingEvidencePackage(true);
+
+    try {
+      const nextPackage = await buildDemoEvidencePackage(auditSnapshot);
+
+      setEvidencePackage(nextPackage);
+      return nextPackage;
+    } catch (error) {
+      setAuditMessage(error instanceof Error ? error.message : "Unable to build evidence package.");
+      return null;
+    } finally {
+      setIsBuildingEvidencePackage(false);
+    }
+  };
+
+  const handleBuildEvidencePackage = async () => {
+    const nextPackage = await buildEvidencePackageForExport();
+
+    if (nextPackage) {
+      setAuditMessage("Public evidence package built.");
+    }
+  };
+
+  const handleCopyEvidencePackageJson = async () => {
+    const nextPackage = evidencePackage ?? (await buildEvidencePackageForExport());
+
+    if (!nextPackage) {
+      return;
+    }
+
+    try {
+      await copyTextToClipboard(JSON.stringify(nextPackage, null, 2));
+      setAuditMessage("Public evidence package JSON copied.");
+    } catch (error) {
+      setAuditMessage(error instanceof Error ? error.message : "Unable to copy evidence package JSON.");
+    }
+  };
+
+  const handleDownloadEvidencePackageJson = async () => {
+    const nextPackage = evidencePackage ?? (await buildEvidencePackageForExport());
+
+    if (!nextPackage) {
+      return;
+    }
+
+    downloadJson(
+      `zkvote-public-evidence-package-${localElection.electionId}.json`,
+      JSON.stringify(nextPackage, null, 2),
+    );
+    setAuditMessage("Public evidence package download started.");
   };
 
   const CustomTooltip = ({ active, payload }: ChartTooltipProps) => {
@@ -516,7 +586,7 @@ export function Results() {
               )}
             </div>
 
-            <div className="flex flex-col gap-3 sm:flex-row">
+            <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:justify-end">
               <button
                 onClick={handleCopyAuditJson}
                 disabled={!canExportAudit}
@@ -532,6 +602,30 @@ export function Results() {
               >
                 <Download className="h-4 w-4" />
                 Download audit JSON
+              </button>
+              <button
+                onClick={() => void handleBuildEvidencePackage()}
+                disabled={!canExportAudit || isBuildingEvidencePackage}
+                className="inline-flex items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isBuildingEvidencePackage ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileCheck2 className="h-4 w-4" />}
+                Build evidence package
+              </button>
+              <button
+                onClick={() => void handleCopyEvidencePackageJson()}
+                disabled={!canExportAudit || isBuildingEvidencePackage}
+                className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <Clipboard className="h-4 w-4" />
+                Copy evidence package JSON
+              </button>
+              <button
+                onClick={() => void handleDownloadEvidencePackageJson()}
+                disabled={!canExportAudit || isBuildingEvidencePackage}
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <Download className="h-4 w-4" />
+                Download evidence package JSON
               </button>
             </div>
           </div>
@@ -573,6 +667,47 @@ export function Results() {
                 <span title={auditSnapshot.merkleRoot}>merkleRoot: <span className="font-mono">{formatLongValue(auditSnapshot.merkleRoot)}</span></span>
                 <span>root mode match: {auditSnapshot.checks.rootMatchesDeclaredMode ? "passed" : "failed"}</span>
               </div>
+            </div>
+          )}
+
+          {evidencePackage && (
+            <div className="mt-5 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-950">
+              <div className="font-semibold">Public Evidence Package</div>
+              <p className="mt-1 text-emerald-900">
+                Combines the Results audit, local registration evidence, Poseidon registry preview, root attribution,
+                safety warnings, and verification checks. Public identity commitments appear only in the registration
+                and registry evidence sections.
+              </p>
+              <div className="mt-3 grid grid-cols-1 gap-2 md:grid-cols-3">
+                <span>packageVersion: <span className="font-mono">{evidencePackage.packageVersion}</span></span>
+                <span>demoMode: <span className="font-mono">{evidencePackage.demoMode}</span></span>
+                <span title={evidencePackage.merkleRoot}>merkleRoot: <span className="font-mono">{formatLongValue(evidencePackage.merkleRoot)}</span></span>
+              </div>
+              <div className="mt-3 grid grid-cols-1 gap-2 md:grid-cols-2 lg:grid-cols-5">
+                {Object.entries(evidencePackage.checks).map(([checkName, passed]) => (
+                  <span
+                    key={checkName}
+                    className={`rounded-lg border px-3 py-2 font-mono text-xs ${
+                      passed ? "border-emerald-300 bg-white text-emerald-800" : "border-amber-300 bg-amber-50 text-amber-800"
+                    }`}
+                  >
+                    {checkName}: {String(passed)}
+                  </span>
+                ))}
+              </div>
+              <ul className="mt-3 space-y-1 text-emerald-900">
+                {evidencePackage.warnings.slice(0, 4).map((warning) => (
+                  <li key={warning} className="flex items-start gap-2">
+                    <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+                    <span>{warning}</span>
+                  </li>
+                ))}
+              </ul>
+              {evidencePackageJson && (
+                <p className="mt-3 text-xs text-emerald-800">
+                  Package JSON ready: {evidencePackageJson.length.toLocaleString()} characters.
+                </p>
+              )}
             </div>
           )}
 
