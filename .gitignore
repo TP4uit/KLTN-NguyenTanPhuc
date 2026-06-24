@@ -35,3 +35,12 @@
 
 # Agent Skills
 .agent/
+
+# Unpacked files
+unpacked_docx/
+
+# Images
+images/
+
+# Docs
+docs/
