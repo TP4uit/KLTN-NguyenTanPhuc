@@ -4,6 +4,8 @@ const USERS_KEY = "zkvote.demoAuth.users";
 const SESSION_KEY = "zkvote.demoAuth.session";
 const MIN_PASSWORD_LENGTH = 8;
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const DEMO_ACCOUNT_PASSWORD = "password123";
+const DEMO_ACCOUNT_CREATED_AT = "2026-06-15T00:00:00.000Z";
 
 const SEEDED_USERS: DemoUser[] = [
   {
@@ -11,26 +13,52 @@ const SEEDED_USERS: DemoUser[] = [
     fullName: "Demo Admin",
     email: "admin@zkvote.local",
     role: "ADMIN",
-    password: "password123",
-    createdAt: "2026-06-15T00:00:00.000Z",
+    password: DEMO_ACCOUNT_PASSWORD,
+    createdAt: DEMO_ACCOUNT_CREATED_AT,
   },
   {
     id: "demo-voter",
     fullName: "Demo Voter",
     email: "voter@zkvote.local",
     role: "VOTER",
-    password: "password123",
-    createdAt: "2026-06-15T00:00:00.000Z",
+    password: DEMO_ACCOUNT_PASSWORD,
+    createdAt: DEMO_ACCOUNT_CREATED_AT,
+  },
+  {
+    id: "demo-voter-2",
+    fullName: "Demo Voter 2",
+    email: "voter2@zkvote.local",
+    role: "VOTER",
+    password: DEMO_ACCOUNT_PASSWORD,
+    createdAt: DEMO_ACCOUNT_CREATED_AT,
+  },
+  {
+    id: "demo-voter-3",
+    fullName: "Demo Voter 3",
+    email: "voter3@zkvote.local",
+    role: "VOTER",
+    password: DEMO_ACCOUNT_PASSWORD,
+    createdAt: DEMO_ACCOUNT_CREATED_AT,
+  },
+  {
+    id: "demo-voter-4",
+    fullName: "Demo Voter 4",
+    email: "voter4@zkvote.local",
+    role: "VOTER",
+    password: DEMO_ACCOUNT_PASSWORD,
+    createdAt: DEMO_ACCOUNT_CREATED_AT,
   },
   {
     id: "demo-auditor",
     fullName: "Demo Auditor",
     email: "auditor@zkvote.local",
     role: "AUDITOR",
-    password: "password123",
-    createdAt: "2026-06-15T00:00:00.000Z",
+    password: DEMO_ACCOUNT_PASSWORD,
+    createdAt: DEMO_ACCOUNT_CREATED_AT,
   },
 ];
+
+export const DEMO_ACCOUNT_CREDENTIALS = SEEDED_USERS.map(({ email, password }) => ({ email, password }));
 
 function getStorage() {
   if (typeof window === "undefined") {
@@ -113,7 +141,7 @@ function createUserId() {
 export function seedDemoUsers() {
   const users = readUsers();
   const missingSeedUsers = SEEDED_USERS.filter(
-    (seedUser) => !users.some((user) => normalizeEmail(user.email) === seedUser.email),
+    (seedUser) => !users.some((user) => normalizeEmail(user.email) === normalizeEmail(seedUser.email)),
   );
 
   if (missingSeedUsers.length === 0) {

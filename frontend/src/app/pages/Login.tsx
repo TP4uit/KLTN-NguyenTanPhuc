@@ -5,13 +5,13 @@ import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import { useAuth } from "../lib/authContext";
+import { DEMO_ACCOUNT_CREDENTIALS } from "../lib/localAuth";
 
 type LoginFieldErrors = {
   email?: string;
   password?: string;
 };
 
-const DEMO_ACCOUNTS = ["admin@zkvote.local", "voter@zkvote.local", "auditor@zkvote.local"];
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PRIVACY_NOTE =
   "Demo accounts control app access only. They must not be linked to the final vote choice. ZK identity and vote proof flows remain separate.";
@@ -107,8 +107,10 @@ export function Login() {
             <div className="rounded-lg border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-900">
               <p className="font-semibold">Demo accounts</p>
               <div className="mt-2 grid gap-1 font-mono text-xs sm:text-sm">
-                {DEMO_ACCOUNTS.map((account) => (
-                  <span key={account}>{account} / password123</span>
+                {DEMO_ACCOUNT_CREDENTIALS.map((account) => (
+                  <span key={account.email}>
+                    {account.email} / {account.password}
+                  </span>
                 ))}
               </div>
             </div>
